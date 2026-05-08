@@ -1,0 +1,14 @@
+export interface ApiSuccessResponse<T> {
+  success: true;
+  data: T;
+  message?: string;
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  message: string;
+  errors?: Record<string, string[]>;
+  statusCode: number;
+  timestamp: string;
+  path: string;
+}
