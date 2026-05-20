@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: online-shop-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false          # Render dashboard'dan kiritiladi
+      - key: DB_SYNCHRONIZE
+        value: false
+      - key: DB_LOGGING
+        value: false
+      - key: FRONTEND_URL
+        sync: false          # Vercel URL'ingiz, masalan: https://online-shop-xyz.vercel.app
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES
+        value: 30d
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_SECURE
+        value: false
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: OnlineShop
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: UPLOAD_DIR
+        value: ./uploads

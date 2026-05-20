@@ -10,7 +10,8 @@ export function useSocket() {
   useEffect(() => {
     if (!accessToken) return;
 
-    const socket = io("/chat", {
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL as string) ?? "";
+    const socket = io(`${backendUrl}/chat`, {
       auth: { token: accessToken },
       transports: ["websocket"],
     });
