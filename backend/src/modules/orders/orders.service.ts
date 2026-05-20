@@ -105,10 +105,27 @@ export class OrdersService {
       sellerGroups.get(sid)!.push(item);
     }
 
-    // Kupon (agar berilgan bo'lsa)
+    // Umumiy buyurtma summasi — kupon minOrderAmount tekshiruvi uchun
+    let grandTotal = 0;
+    for (const item of cartItems) {
+      const basePrice = parseFloat(item.product.basePrice);
+      const discountPrice = item.product.discountPrice
+        ? parseFloat(item.product.discountPrice)
+        : null;
+      const isDiscountActive =
+        discountPrice !== null &&
+        (!item.product.discountEndsAt ||
+          new Date(item.product.discountEndsAt) > new Date());
+      const effectivePrice = isDiscountActive ? discountPrice! : basePrice;
+      const variantMod = item.variant ? parseFloat(item.variant.priceModifier) : 0;
+      grandTotal += (effectivePrice + variantMod) * item.quantity;
+    }
+
+    // DTO kuponi yoki savat kuponi
+    const effectiveCouponCode = dto.couponCode ?? cart.couponCode ?? null;
     let coupon: Coupon | null = null;
-    if (dto.couponCode) {
-      coupon = await this.validateCoupon(dto.couponCode);
+    if (effectiveCouponCode) {
+      coupon = await this.validateCoupon(effectiveCouponCode, grandTotal);
     }
 
     const orders: Order[] = [];
@@ -167,7 +184,7 @@ export class OrdersService {
         let discountAmount = 0;
         if (coupon) {
           const totalSellerGroups = sellerGroups.size;
-          const couponPortion = 1 / totalSellerGroups; // har bir seller'ga teng qism
+          const couponPortion = 1 / totalSellerGroups;
           discountAmount = this.calculateDiscount(
             totalAmount,
             coupon,
@@ -220,6 +237,7 @@ export class OrdersService {
 
       // Savatni tozalash
       await manager.delete(CartItem, { cartId: cart.id });
+      await manager.update(Cart, { id: cart.id }, { couponCode: null });
     });
 
     // To'liq ma'lumot bilan qaytarish
@@ -454,7 +472,10 @@ export class OrdersService {
     }
   }
 
-  private async validateCoupon(code: string): Promise<Coupon> {
+  private async validateCoupon(
+    code: string,
+    totalOrderAmount: number,
+  ): Promise<Coupon> {
     const coupon = await this.couponRepo.findOne({
       where: { code: code.toUpperCase(), isActive: true },
     });
@@ -472,6 +493,14 @@ export class OrdersService {
     if (coupon.usageLimit !== null && coupon.usageCount >= coupon.usageLimit) {
       throw new BadRequestException('Kupon limiti tugagan');
     }
+    if (
+      coupon.minOrderAmount &&
+      totalOrderAmount < parseFloat(coupon.minOrderAmount)
+    ) {
+      throw new BadRequestException(
+        `Kupon uchun minimal buyurtma summasi: ${parseFloat(coupon.minOrderAmount).toLocaleString('uz-UZ')} so'm`,
+      );
+    }
     return coupon;
   }
 
@@ -480,25 +509,16 @@ export class OrdersService {
     coupon: Coupon,
     portion: number,
   ): number {
-    const portionAmount = amount; // har bir seller uchun o'z summasi
     let discount: number;
 
     if (coupon.type === CouponType.PERCENTAGE) {
-      discount = portionAmount * (parseFloat(coupon.value) / 100);
+      discount = amount * (parseFloat(coupon.value) / 100);
     } else {
-      // FIXED — teng taqsimlaymiz
+      // FIXED — seller ulushiga teng taqsimlaymiz
       discount = parseFloat(coupon.value) * portion;
     }
 
-    // minOrderAmount tekshiruvi — umumiy summa uchun
-    if (
-      coupon.minOrderAmount &&
-      portionAmount < parseFloat(coupon.minOrderAmount)
-    ) {
-      return 0;
-    }
-
-    // maxDiscountAmount cheklovi
+    // maxDiscountAmount cheklovi (seller ulushiga nisbatan)
     if (coupon.maxDiscountAmount) {
       const max = parseFloat(coupon.maxDiscountAmount) * portion;
       discount = Math.min(discount, max);

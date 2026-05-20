@@ -6,14 +6,17 @@ export const envValidationSchema = Joi.object({
     .default('development'),
   PORT: Joi.number().default(3000),
   FRONTEND_URL: Joi.string().uri().required(),
-
-  DB_HOST: Joi.string().required(),
-  DB_PORT: Joi.number().default(5432),
-  DB_USERNAME: Joi.string().required(),
-  DB_PASSWORD: Joi.string().required(),
-  DB_DATABASE: Joi.string().required(),
+  DATABASE_URL: Joi.string().required(),
   DB_SYNCHRONIZE: Joi.boolean().default(false),
   DB_LOGGING: Joi.boolean().default(true),
+
+  // DB_HOST: Joi.string().required(),
+  // DB_PORT: Joi.number().default(5432),
+  // DB_USERNAME: Joi.string().required(),
+  // DB_PASSWORD: Joi.string().required(),
+  // DB_DATABASE: Joi.string().required(),
+  // DB_SYNCHRONIZE: Joi.boolean().default(false),
+  // DB_LOGGING: Joi.boolean().default(true),
 
   // JWT
   JWT_ACCESS_SECRET: Joi.string().min(32).required(),

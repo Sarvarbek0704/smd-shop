@@ -9,7 +9,8 @@ import { Cart } from '../../database/entities/cart.entity';
 import { CartItem } from '../../database/entities/cart-item.entity';
 import { Product } from '../../database/entities/product.entity';
 import { ProductVariant } from '../../database/entities/product-variant.entity';
-import { ProductStatus } from '../../database/entities/enums';
+import { Coupon } from '../../database/entities/coupon.entity';
+import { CouponType, ProductStatus } from '../../database/entities/enums';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 
 @Injectable()
@@ -22,6 +23,8 @@ export class CartService {
     private readonly productRepo: Repository<Product>,
     @InjectRepository(ProductVariant)
     private readonly variantRepo: Repository<ProductVariant>,
+    @InjectRepository(Coupon)
+    private readonly couponRepo: Repository<Coupon>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -117,13 +120,49 @@ export class CartService {
       }
     }
 
+    const subtotal = totalAmount;
+
+    // Kupon chegirmasi (preview)
+    let discountAmount = 0;
+    let couponMeta: Coupon | null = null;
+    if (cart.couponCode) {
+      couponMeta = await this.couponRepo.findOne({
+        where: { code: cart.couponCode, isActive: true },
+      });
+      if (couponMeta) {
+        const meetsMin =
+          !couponMeta.minOrderAmount ||
+          subtotal >= parseFloat(couponMeta.minOrderAmount);
+        if (meetsMin) {
+          if (couponMeta.type === CouponType.PERCENTAGE) {
+            discountAmount = subtotal * (parseFloat(couponMeta.value) / 100);
+          } else {
+            discountAmount = parseFloat(couponMeta.value);
+          }
+          if (couponMeta.maxDiscountAmount) {
+            discountAmount = Math.min(
+              discountAmount,
+              parseFloat(couponMeta.maxDiscountAmount),
+            );
+          }
+          discountAmount = Math.round(discountAmount);
+        }
+      } else {
+        // Kupon endi yaroqsiz — avtomatik olib tashlash
+        await this.cartRepo.update(cart.id, { couponCode: null });
+      }
+    }
+
     return {
       id: cart.id,
       items: enrichedItems,
       summary: {
         totalItems,
-        totalAmount,
+        subtotal,
+        discountAmount,
+        totalAmount: Math.max(0, subtotal - discountAmount),
         itemCount: enrichedItems.length,
+        couponCode: couponMeta ? cart.couponCode : null,
       },
       warnings: warnings.length > 0 ? warnings : undefined,
     };
@@ -260,6 +299,44 @@ export class CartService {
   async clearCart(userId: string) {
     const cart = await this.getOrCreateCart(userId);
     await this.cartItemRepo.delete({ cartId: cart.id });
+    await this.cartRepo.update(cart.id, { couponCode: null });
+    return this.getCart(userId);
+  }
+
+  // ───────────────── APPLY / REMOVE COUPON ─────────────────
+
+  async applyCoupon(userId: string, code: string) {
+    if (!code || !code.trim()) {
+      throw new BadRequestException('Kupon kodi kiritilmagan');
+    }
+    const cart = await this.getOrCreateCart(userId);
+    const upperCode = code.toUpperCase().trim();
+
+    const coupon = await this.couponRepo.findOne({
+      where: { code: upperCode, isActive: true },
+    });
+    if (!coupon) {
+      throw new BadRequestException('Kupon topilmadi yoki noaktiv');
+    }
+
+    const now = new Date();
+    if (coupon.validFrom && new Date(coupon.validFrom) > now) {
+      throw new BadRequestException('Kupon hali amal qilmaydi');
+    }
+    if (coupon.validUntil && new Date(coupon.validUntil) < now) {
+      throw new BadRequestException("Kupon muddati o'tgan");
+    }
+    if (coupon.usageLimit !== null && coupon.usageCount >= coupon.usageLimit) {
+      throw new BadRequestException('Kupon limiti tugagan');
+    }
+
+    await this.cartRepo.update(cart.id, { couponCode: upperCode });
+    return this.getCart(userId);
+  }
+
+  async removeCoupon(userId: string) {
+    const cart = await this.getOrCreateCart(userId);
+    await this.cartRepo.update(cart.id, { couponCode: null });
     return this.getCart(userId);
   }
 

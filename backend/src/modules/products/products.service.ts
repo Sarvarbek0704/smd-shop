@@ -392,10 +392,21 @@ export class ProductsService {
     }
 
     // Kategoriya filtri (sub-kategoriyalar bilan)
-    if (query.categoryId) {
+    const effectiveCategoryId = await (async () => {
+      if (query.categoryId) return query.categoryId;
+      if (query.categorySlug) {
+        const cat = await this.categoryRepo.findOne({
+          where: { slug: query.categorySlug },
+        });
+        return cat?.id ?? null;
+      }
+      return null;
+    })();
+
+    if (effectiveCategoryId) {
       if (query.includeSubcategories !== false) {
         const parent = await this.categoryRepo.findOne({
-          where: { id: query.categoryId },
+          where: { id: effectiveCategoryId },
         });
         if (parent) {
           const descendants = await this.categoryRepo.findDescendants(parent);
@@ -403,7 +414,7 @@ export class ProductsService {
           qb.andWhere('p.categoryId IN (:...catIds)', { catIds: ids });
         }
       } else {
-        qb.andWhere('p.categoryId = :catId', { catId: query.categoryId });
+        qb.andWhere('p.categoryId = :catId', { catId: effectiveCategoryId });
       }
     }
 

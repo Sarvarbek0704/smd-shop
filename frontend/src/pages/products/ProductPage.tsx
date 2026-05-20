@@ -22,6 +22,7 @@ import {
   PackageOpen,
   ChevronLeft,
 } from 'lucide-react';
+import { ProductReviews } from './ProductReviews';
 
 export function ProductPage() {
   const { slug } = useParams();
@@ -334,6 +335,9 @@ export function ProductPage() {
           )}
         </div>
       </div>
+
+      {/* Reviews */}
+      <ProductReviews slug={product.slug} productId={product.id} />
 
       {/* Similar products */}
       {similar && similar.length > 0 && (

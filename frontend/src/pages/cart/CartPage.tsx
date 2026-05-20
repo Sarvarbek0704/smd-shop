@@ -1,12 +1,15 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   useGetCartQuery,
   useUpdateCartItemMutation,
   useRemoveCartItemMutation,
   useClearCartMutation,
-} from '@/store/api/cartApi';
-import toast from 'react-hot-toast';
+  useApplyCouponMutation,
+  useRemoveCouponMutation,
+} from "@/store/api/cartApi";
+import toast from "react-hot-toast";
 import {
   Minus,
   Plus,
@@ -17,24 +20,36 @@ import {
   Loader2,
   PackageOpen,
   AlertTriangle,
-} from 'lucide-react';
+  Ticket,
+  X,
+} from "lucide-react";
 
 export function CartPage() {
   const navigate = useNavigate();
+  const [couponCode, setCouponCode] = useState("");
   const { data: cart, isLoading } = useGetCartQuery();
   const [updateItem] = useUpdateCartItemMutation();
   const [removeItem] = useRemoveCartItemMutation();
   const [clearCart, { isLoading: clearing }] = useClearCartMutation();
+  const [applyCoupon, { isLoading: applying }] = useApplyCouponMutation();
+  const [removeCoupon, { isLoading: removing }] = useRemoveCouponMutation();
 
   const items = cart?.items ?? [];
-  const summary = cart?.summary ?? { totalItems: 0, totalAmount: 0, itemCount: 0 };
+  const summary = cart?.summary ?? {
+    totalItems: 0,
+    totalAmount: 0,
+    itemCount: 0,
+    subtotal: 0,
+    discountAmount: 0,
+    couponCode: null,
+  };
   const warnings = cart?.warnings ?? [];
 
   const handleUpdateQuantity = async (itemId: string, quantity: number) => {
     try {
       await updateItem({ itemId, quantity }).unwrap();
     } catch (err: any) {
-      toast.error(err?.data?.message ?? 'Xatolik');
+      toast.error(err?.data?.message ?? "Xatolik");
     }
   };
 
@@ -43,17 +58,37 @@ export function CartPage() {
       await removeItem(itemId).unwrap();
       toast.success(`"${name}" savatdan olib tashlandi`);
     } catch (err: any) {
-      toast.error(err?.data?.message ?? 'Xatolik');
+      toast.error(err?.data?.message ?? "Xatolik");
     }
   };
 
   const handleClear = async () => {
-    if (!confirm('Savatni to\'liq tozalashni xohlaysizmi?')) return;
+    if (!confirm("Savatni to'liq tozalashni xohlaysizmi?")) return;
     try {
       await clearCart().unwrap();
-      toast.success('Savat tozalandi');
+      toast.success("Savat tozalandi");
     } catch (err: any) {
-      toast.error(err?.data?.message ?? 'Xatolik');
+      toast.error(err?.data?.message ?? "Xatolik");
+    }
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    try {
+      await applyCoupon(couponCode).unwrap();
+      toast.success("Kupon muvaffaqiyatli qo'llanildi");
+      setCouponCode("");
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? "Kupon yaroqsiz");
+    }
+  };
+
+  const handleRemoveCoupon = async () => {
+    try {
+      await removeCoupon().unwrap();
+      toast.success("Kupon olib tashlandi");
+    } catch (err: any) {
+      toast.error("Xatolik yuz berdi");
     }
   };
 
@@ -89,14 +124,17 @@ export function CartPage() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
-        <Link to="/" className="hover:text-slate-900">Bosh sahifa</Link>
+        <Link to="/" className="hover:text-slate-900">
+          Bosh sahifa
+        </Link>
         <ChevronRight className="w-3.5 h-3.5" />
         <span className="text-slate-900 font-medium">Savat</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">
-          Savat <span className="text-slate-400 font-normal text-lg">({summary.totalItems})</span>
+          Savat{" "}
+          <span className="text-slate-400 font-normal text-lg">({summary.totalItems})</span>
         </h1>
         <button
           onClick={handleClear}
@@ -116,7 +154,9 @@ export function CartPage() {
             <div>
               <p className="text-sm font-semibold text-amber-800 mb-1">Diqqat</p>
               {warnings.map((w: string, i: number) => (
-                <p key={i} className="text-sm text-amber-700">{w}</p>
+                <p key={i} className="text-sm text-amber-700">
+                  {w}
+                </p>
               ))}
             </div>
           </div>
@@ -140,16 +180,26 @@ export function CartPage() {
 
         {/* Summary */}
         <div className="lg:col-span-1">
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 sticky top-24">
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 sticky top-24 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Buyurtma xulosasi</h3>
 
             <div className="space-y-3 mb-6">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Mahsulotlar ({summary.itemCount})</span>
                 <span className="text-slate-900 font-medium">
-                  {summary.totalAmount.toLocaleString('uz-UZ')} so'm
+                  {(summary.subtotal ?? summary.totalAmount).toLocaleString("uz-UZ")} so'm
                 </span>
               </div>
+
+              {summary.discountAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Chegirma (Kupon)</span>
+                  <span className="text-emerald-600 font-medium">
+                    -{summary.discountAmount.toLocaleString("uz-UZ")} so'm
+                  </span>
+                </div>
+              )}
+
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Yetkazish</span>
                 <span className="text-emerald-600 font-medium">Bepul</span>
@@ -157,15 +207,54 @@ export function CartPage() {
               <div className="border-t border-stone-100 pt-3 flex justify-between">
                 <span className="text-base font-bold text-slate-900">Jami</span>
                 <span className="text-xl font-extrabold text-slate-900">
-                  {summary.totalAmount.toLocaleString('uz-UZ')} so'm
+                  {summary.totalAmount.toLocaleString("uz-UZ")} so'm
                 </span>
               </div>
             </div>
 
+            {/* Coupon input */}
+            <div className="mb-6">
+              {summary.couponCode ? (
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2 text-emerald-700 font-medium">
+                    <Ticket className="w-4 h-4" />
+                    {summary.couponCode}
+                  </div>
+                  <button
+                    onClick={handleRemoveCoupon}
+                    disabled={removing}
+                    className="p-1 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Promokod"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      className="w-full pl-9 pr-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all"
+                    />
+                  </div>
+                  <button
+                    onClick={handleApplyCoupon}
+                    disabled={applying || !couponCode.trim()}
+                    className="px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 disabled:opacity-40 transition-all"
+                  >
+                    {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Qo'llash"}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <motion.button
-              onClick={() => navigate('/checkout')}
+              onClick={() => navigate("/checkout")}
               whileTap={{ scale: 0.98 }}
-              className="w-full py-3.5 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-200"
             >
               Buyurtma berish <ArrowRight className="w-4 h-4" />
             </motion.button>

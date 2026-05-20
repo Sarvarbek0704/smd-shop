@@ -8,6 +8,11 @@ interface User {
   lastName: string | null;
   isVerified: boolean;
   roles: string[];
+  sellerStatus?: string | null;
+  storeName?: string | null;
+  storeDescription?: string | null;
+  rejectedReason?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface AuthState {
@@ -17,8 +22,13 @@ interface AuthState {
 }
 
 // localStorage dan boshlang'ich holat
-const stored = localStorage.getItem('auth');
-const parsed = stored ? JSON.parse(stored) : null;
+let parsed: AuthState | null = null;
+try {
+  const stored = localStorage.getItem('auth');
+  parsed = stored ? JSON.parse(stored) : null;
+} catch {
+  localStorage.removeItem('auth');
+}
 
 const initialState: AuthState = {
   user: parsed?.user ?? null,

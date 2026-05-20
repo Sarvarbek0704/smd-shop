@@ -13,7 +13,14 @@ export const productsApiSlice = apiSlice.injectEndpoints({
     getProductBySlug: builder.query({
       query: (slug: string) => `/products/slug/${slug}`,
       providesTags: (_res: any, _err: any, slug: string) => [
-        { type: 'Product' as const, id: slug },
+        { type: "Product" as const, id: slug },
+      ],
+    }),
+    
+    getProductById: builder.query({
+      query: (id: string) => `/products/${id}`,
+      providesTags: (_res: any, _err: any, id: string) => [
+        { type: "Product" as const, id },
       ],
     }),
 
@@ -49,6 +56,7 @@ export const productsApiSlice = apiSlice.injectEndpoints({
 export const {
   useGetProductsQuery,
   useGetProductBySlugQuery,
+  useGetProductByIdQuery,
   useSearchProductsQuery,
   useAutocompleteQuery,
   useGetTrendingQuery,

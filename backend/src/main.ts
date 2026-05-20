@@ -35,6 +35,7 @@ function flattenValidationErrors(
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    rawBody: true, // needed for Uzum webhook HMAC-SHA256 signature verification
   });
   const logger = new Logger('Bootstrap');
   const configService = app.get(ConfigService);
@@ -50,7 +51,7 @@ async function bootstrap() {
   });
 
   // API prefix
-  app.setGlobalPrefix('api', { exclude: ['health', 'uploads/(.*)'] });
+  app.setGlobalPrefix('api', { exclude: ['health'] });
 
   // Static assets — yuklangan fayllar
   const uploadDir = configService.get<string>('upload.dir') ?? './uploads';

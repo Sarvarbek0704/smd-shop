@@ -13,6 +13,7 @@ export interface JwtPayload {
   email: string | null;
   phone: string | null;
   roles: string[];
+  isDemo?: boolean;
 }
 
 export interface TokensPair {

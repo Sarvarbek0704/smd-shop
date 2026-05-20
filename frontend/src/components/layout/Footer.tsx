@@ -157,6 +157,14 @@ export function Footer() {
                   Profil
                 </Link>
               </li>
+              <li>
+                <Link
+                  to="/profile/become-seller"
+                  className="text-sm text-amber-500 hover:text-amber-400 transition-colors"
+                >
+                  Sotuvchi bo'lish
+                </Link>
+              </li>
             </ul>
           </div>
 

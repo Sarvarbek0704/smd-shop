@@ -38,8 +38,25 @@ export const cartApiSlice = apiSlice.injectEndpoints({
     }),
 
     clearCart: builder.mutation({
-      query: () => ({ url: '/cart', method: 'DELETE' }),
-      invalidatesTags: ['Cart'],
+      query: () => ({ url: "/cart", method: "DELETE" }),
+      invalidatesTags: ["Cart"],
+    }),
+
+    applyCoupon: builder.mutation({
+      query: (code: string) => ({
+        url: "/cart/apply-coupon",
+        method: "POST",
+        body: { code },
+      }),
+      invalidatesTags: ["Cart"],
+    }),
+
+    removeCoupon: builder.mutation({
+      query: () => ({
+        url: "/cart/remove-coupon",
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Cart"],
     }),
   }),
 });
@@ -50,4 +67,6 @@ export const {
   useUpdateCartItemMutation,
   useRemoveCartItemMutation,
   useClearCartMutation,
+  useApplyCouponMutation,
+  useRemoveCouponMutation,
 } = cartApiSlice;

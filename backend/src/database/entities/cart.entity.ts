@@ -12,6 +12,9 @@ export class Cart extends BaseEntity {
   @Column({ name: 'user_id', type: 'uuid', unique: true })
   userId!: string;
 
+  @Column({ name: 'coupon_code', type: 'varchar', length: 64, nullable: true, default: null })
+  couponCode!: string | null;
+
   @OneToMany(() => CartItem, (ci) => ci.cart, { cascade: true })
   items!: CartItem[];
 }

@@ -493,6 +493,7 @@ export class AuthService {
       email: user.email,
       phone: user.phone,
       roles: user.roles.map((r) => r.name),
+      isDemo: user.isDemo,
     };
 
     return this.tokenService.rotateRefreshToken(refreshToken, payload, meta);
@@ -523,6 +524,7 @@ export class AuthService {
       email: user.email,
       phone: user.phone,
       roles: roles.map((r) => r.name),
+      isDemo: user.isDemo,
     };
 
     const tokens = await this.tokenService.issueTokens(payload, meta);

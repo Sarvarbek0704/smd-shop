@@ -295,12 +295,28 @@ export class AnalyticsService {
       [sellerId],
     );
 
+    const o = orders[0];
+    const p = products[0];
+    const r = reviews[0];
+
     return {
-      orders: orders[0],
-      products: products[0],
-      reviews: reviews[0],
+      totalRevenue: Number(o.total_revenue ?? 0),
+      monthRevenue: Number(o.revenue_this_month ?? 0),
+      totalOrders: Number(o.total_orders ?? 0),
+      pendingOrders: Number(o.pending ?? 0),
+      cancelledOrders: Number(o.cancelled ?? 0),
+      deliveredOrders: Number(o.delivered ?? 0),
+      totalProducts: Number(p.total ?? 0),
+      activeProducts: Number(p.active ?? 0),
+      totalViews: Number(p.total_views ?? 0),
+      avgRating: Number(r.avg_rating ?? 0),
+      totalReviews: Number(r.total_reviews ?? 0),
       daily,
-      topProducts,
+      topProducts: topProducts.map((tp: any) => ({
+        ...tp,
+        soldCount: Number(tp.total_sold ?? 0),
+        revenue: Number(tp.total_revenue ?? 0),
+      })),
     };
   }
 

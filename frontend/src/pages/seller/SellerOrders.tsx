@@ -92,23 +92,23 @@ export function SellerOrders() {
                 {/* Header */}
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}
-                  className="w-full p-4 flex items-center justify-between hover:bg-stone-50/50 transition-colors"
+                  className="w-full p-4 flex items-center gap-3 hover:bg-stone-50/50 transition-colors text-left"
                 >
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900 text-left">{order.orderNumber}</p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(order.createdAt).toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
+                  {/* Left: order info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{order.orderNumber}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {new Date(order.createdAt).toLocaleDateString('uz-UZ', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-slate-900">
+                  {/* Right: amount + status + chevron */}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="text-sm font-bold text-slate-900 whitespace-nowrap">
                       {parseFloat(order.finalAmount).toLocaleString('uz-UZ')} so'm
                     </span>
-                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${st.color}`}>{st.label}</span>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${st.color}`}>{st.label}</span>
                   </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Expanded */}
@@ -124,19 +124,19 @@ export function SellerOrders() {
                       <div className="px-4 pb-4 border-t border-stone-100 pt-4">
                         {/* Buyer info */}
                         {order.buyer && (
-                          <div className="flex items-center gap-4 mb-4 p-3 bg-stone-50 rounded-xl text-sm">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 p-3 bg-stone-50 rounded-xl text-sm">
                             <div className="flex items-center gap-2 text-slate-600">
-                              <User className="w-4 h-4 text-slate-400" />
+                              <User className="w-4 h-4 text-slate-400 shrink-0" />
                               {order.buyer.firstName} {order.buyer.lastName}
                             </div>
                             {order.buyer.phone && (
                               <div className="flex items-center gap-2 text-slate-600">
-                                <Phone className="w-4 h-4 text-slate-400" />
+                                <Phone className="w-4 h-4 text-slate-400 shrink-0" />
                                 {order.buyer.phone}
                               </div>
                             )}
                             {order.buyer.email && (
-                              <div className="text-slate-500 text-xs">{order.buyer.email}</div>
+                              <div className="text-slate-500 text-xs break-all">{order.buyer.email}</div>
                             )}
                           </div>
                         )}

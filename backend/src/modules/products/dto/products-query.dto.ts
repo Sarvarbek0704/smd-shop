@@ -36,6 +36,11 @@ export class ProductsQueryDto extends PaginationQueryDto {
   @IsUUID()
   categoryId?: string;
 
+  @ApiPropertyOptional({ description: 'Kategoriya slug orqali filtrlash' })
+  @IsOptional()
+  @IsString()
+  categorySlug?: string;
+
   @ApiPropertyOptional({
     description: "Sub-kategoriyalarni ham qo'shish",
     default: true,

@@ -15,6 +15,7 @@ import {
   Truck,
   Package,
   AlertTriangle,
+  Wallet,
 } from 'lucide-react';
 
 const STATUS_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
@@ -54,6 +55,7 @@ export function OrderDetailPage() {
   const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
   const currentStepIndex = STATUS_STEPS.indexOf(order.status);
   const canCancel = ['pending', 'confirmed'].includes(order.status);
+  const canPay = order.paymentMethod !== 'cod' && order.paymentStatus === 'pending' && !isCancelled;
 
   const handleCancel = async () => {
     if (cancelReason.length < 3) { toast.error('Sabab kiriting (kamida 3 belgi)'); return; }
@@ -83,14 +85,25 @@ export function OrderDetailPage() {
             {new Date(order.createdAt).toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
-        {canCancel && (
-          <button
-            onClick={() => setShowCancel(!showCancel)}
-            className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
-          >
-            Bekor qilish
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canPay && (
+            <Link
+              to={`/payment/${order.id}`}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors"
+            >
+              <Wallet className="w-4 h-4" />
+              To'lash
+            </Link>
+          )}
+          {canCancel && (
+            <button
+              onClick={() => setShowCancel(!showCancel)}
+              className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
+            >
+              Bekor qilish
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Cancel form */}
@@ -184,7 +197,14 @@ export function OrderDetailPage() {
             <CreditCard className="w-4 h-4" /> To'lov
           </h3>
           <p className="text-sm text-slate-600 capitalize">{order.paymentMethod}</p>
-          <p className="text-xs text-slate-500 mt-1">Status: {order.paymentStatus}</p>
+          <span className={`inline-block text-xs font-semibold mt-1.5 px-2 py-0.5 rounded-full ${
+            order.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+            order.paymentStatus === 'cancelled' ? 'bg-red-100 text-red-700' :
+            'bg-amber-100 text-amber-700'
+          }`}>
+            {order.paymentStatus === 'paid' ? "To'langan" :
+             order.paymentStatus === 'cancelled' ? 'Bekor qilingan' : "Kutilmoqda"}
+          </span>
         </div>
       </div>
 

@@ -206,6 +206,62 @@ export class ReviewsService {
     return this.reviewRepo.save(review);
   }
 
+  // Seller: o'z mahsulotlarining sharhlari
+  async findBySellerProducts(
+    sellerId: string,
+    query: ReviewsQueryDto,
+  ): Promise<PaginatedResult<unknown>> {
+    const qb = this.reviewRepo
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.product', 'p')
+      .leftJoinAndSelect('p.images', 'img')
+      .leftJoin('r.user', 'u')
+      .addSelect(['u.id', 'u.firstName', 'u.lastName', 'u.avatarUrl'])
+      .where('p.sellerId = :sid', { sid: sellerId });
+
+    if (query.rating) {
+      qb.andWhere('r.rating = :rt', { rt: query.rating });
+    }
+
+    const sortBy = query.sortBy ?? ReviewSortBy.CREATED;
+    qb.orderBy(`r.${sortBy}`, 'DESC')
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit);
+
+    const [items, total] = await qb.getManyAndCount();
+    return buildPaginated(items, total, query.page, query.limit);
+  }
+
+  // Admin: barcha sharhlar
+  async findAll(query: ReviewsQueryDto): Promise<PaginatedResult<unknown>> {
+    const qb = this.reviewRepo
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.product', 'p')
+      .leftJoin('r.user', 'u')
+      .addSelect(['u.id', 'u.firstName', 'u.lastName']);
+
+    if (query.rating) {
+      qb.andWhere('r.rating = :rt', { rt: query.rating });
+    }
+
+    qb.orderBy('r.createdAt', 'DESC')
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit);
+
+    const [items, total] = await qb.getManyAndCount();
+    return buildPaginated(items, total, query.page, query.limit);
+  }
+
+  // Admin: sharhni chop etish holatini o'zgartirish
+  async setPublished(reviewId: string, isPublished: boolean): Promise<Review> {
+    const review = await this.reviewRepo.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Sharh topilmadi');
+    review.isPublished = isPublished;
+    await this.reviewRepo.save(review);
+    await this.recalculateRating(review.productId);
+    return review;
+  }
+
   // Admin: sharhni yashirish/ko'rsatish
   async togglePublish(reviewId: string): Promise<Review> {
     const review = await this.reviewRepo.findOne({

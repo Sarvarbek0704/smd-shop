@@ -14,6 +14,7 @@ import { Product } from './product.entity';
 import { Cart } from './cart.entity';
 import { Wishlist } from './wishlist.entity';
 import { Notification } from './notification.entity';
+import { SellerStatus } from './enums';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -47,6 +48,26 @@ export class User extends BaseEntity {
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
+
+  @Column({ name: 'is_demo', type: 'boolean', default: false })
+  isDemo!: boolean;
+
+  @Column({
+    name: 'seller_status',
+    type: 'enum',
+    enum: SellerStatus,
+    nullable: true,
+  })
+  sellerStatus!: SellerStatus | null;
+
+  @Column({ name: 'store_name', type: 'varchar', length: 100, nullable: true })
+  storeName!: string | null;
+
+  @Column({ name: 'store_description', type: 'text', nullable: true })
+  storeDescription!: string | null;
+
+  @Column({ name: 'rejected_reason', type: 'text', nullable: true })
+  rejectedReason!: string | null;
 
   @ManyToMany(() => Role, (role) => role.users, { cascade: false })
   @JoinTable({

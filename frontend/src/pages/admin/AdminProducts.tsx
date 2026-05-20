@@ -94,9 +94,9 @@ export function AdminProducts() {
             return (
               <div
                 key={product.id}
-                className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-4"
+                className="bg-white border border-stone-100 rounded-xl p-4 flex items-center gap-3 sm:gap-4"
               >
-                <div className="w-14 h-14 bg-stone-100 rounded-lg overflow-hidden shrink-0">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-stone-100 rounded-lg overflow-hidden shrink-0">
                   {img ? (
                     <img
                       src={`/uploads${img.url}`}
@@ -114,7 +114,7 @@ export function AdminProducts() {
                   <h3 className="text-sm font-semibold text-slate-900 truncate">
                     {product.name}
                   </h3>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                  <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 mt-0.5">
                     <span>
                       {parseFloat(product.basePrice).toLocaleString("uz-UZ")}{" "}
                       so'm
@@ -136,7 +136,7 @@ export function AdminProducts() {
                     >
                       {product.status}
                     </span>
-                    <span>Seller: {product.seller?.firstName ?? "?"}</span>
+                    <span className="hidden sm:inline">Seller: {product.seller?.firstName ?? "?"}</span>
                   </div>
                 </div>
 

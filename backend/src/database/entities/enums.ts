@@ -64,3 +64,25 @@ export enum CouponType {
   PERCENTAGE = 'percentage',
   FIXED = 'fixed',
 }
+
+export enum SellerStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
+export enum TransactionStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  SUCCESS = 'success',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  REFUNDED = 'refunded',
+}
+
+export enum CancelReason {
+  USER_CANCELLED = 1,
+  EXPIRED = 2,
+  PROVIDER_DECLINED = 3,
+  REFUND_REQUESTED = 4,
+}

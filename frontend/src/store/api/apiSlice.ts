@@ -80,6 +80,10 @@ export const apiSlice = createApi({
     'Reviews',
     'Notifications',
     'Chat',
+    'Delivery',
+    'Banners',
+    'Coupons',
+    'Payments',
   ],
   endpoints: () => ({}),
 });

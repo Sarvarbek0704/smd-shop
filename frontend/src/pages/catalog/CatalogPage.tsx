@@ -52,7 +52,7 @@ export function CatalogPage() {
   const apiParams: Record<string, unknown> = {
     page,
     limit: 24,
-    ...(categorySlug && { categoryId: categorySlug }),
+    ...(categorySlug && { categorySlug }),
     ...(minPrice && { priceMin: Number(minPrice) }),
     ...(maxPrice && { priceMax: Number(maxPrice) }),
     ...(hasDiscount && { hasDiscount: true }),
@@ -367,6 +367,62 @@ function ProductCard({ product, index }: { product: any; index: number }) {
 
 // ───────── Filter Sidebar ─────────
 
+function CategoryTree({
+  cat,
+  categorySlug,
+}: {
+  cat: any;
+  categorySlug?: string;
+}) {
+  const isParentActive = categorySlug === cat.slug;
+  const isChildActive = cat.children?.some((c: any) => c.slug === categorySlug);
+  const [open, setOpen] = useState(isParentActive || isChildActive);
+
+  return (
+    <div>
+      <div className="flex items-center gap-1">
+        <Link
+          to={`/catalog/${cat.slug}`}
+          className={`flex-1 px-3 py-2 rounded-lg text-sm transition-colors ${
+            isParentActive
+              ? 'bg-slate-900 text-white font-medium'
+              : 'text-slate-600 hover:bg-stone-100'
+          }`}
+        >
+          {cat.name}
+        </Link>
+        {cat.children?.length > 0 && (
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-stone-100 rounded-lg transition-colors shrink-0"
+          >
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+            />
+          </button>
+        )}
+      </div>
+      {cat.children?.length > 0 && open && (
+        <div className="ml-3 mt-0.5 space-y-0.5">
+          {cat.children.map((child: any) => (
+            <Link
+              key={child.id}
+              to={`/catalog/${child.slug}`}
+              className={`block px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                categorySlug === child.slug
+                  ? 'bg-slate-800 text-white font-medium'
+                  : 'text-slate-500 hover:bg-stone-100'
+              }`}
+            >
+              {child.name}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterSidebar({
   categories,
   categorySlug,
@@ -408,27 +464,7 @@ function FilterSidebar({
             Barchasi
           </Link>
           {categories.map((cat: any) => (
-            <div key={cat.id}>
-              <Link
-                to={`/catalog/${cat.slug}`}
-                className={`block px-3 py-2 rounded-lg text-sm transition-colors ${categorySlug === cat.slug ? 'bg-slate-900 text-white font-medium' : 'text-slate-600 hover:bg-stone-100'}`}
-              >
-                {cat.name}
-              </Link>
-              {cat.children?.length > 0 && (
-                <div className="ml-3 mt-0.5 space-y-0.5">
-                  {cat.children.map((child: any) => (
-                    <Link
-                      key={child.id}
-                      to={`/catalog/${child.slug}`}
-                      className={`block px-3 py-1.5 rounded-lg text-xs transition-colors ${categorySlug === child.slug ? 'bg-slate-800 text-white font-medium' : 'text-slate-500 hover:bg-stone-100'}`}
-                    >
-                      {child.name}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+            <CategoryTree key={cat.id} cat={cat} categorySlug={categorySlug} />
           ))}
         </div>
       </div>

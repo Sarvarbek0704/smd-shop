@@ -95,7 +95,7 @@ export function AdminCoupons() {
             className="overflow-hidden mb-6"
           >
             <div className="bg-white border border-stone-200 rounded-xl p-5">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                 <input
                   value={form.code}
                   onChange={(e) =>

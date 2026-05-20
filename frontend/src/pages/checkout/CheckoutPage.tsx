@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,6 +46,15 @@ export function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [couponCode, setCouponCode] = useState('');
   const [notes, setNotes] = useState('');
+  const couponPrePopulated = useRef(false);
+
+  // Pre-populate coupon from cart if already applied
+  useEffect(() => {
+    if (!couponPrePopulated.current && (cart?.summary as any)?.couponCode) {
+      setCouponCode((cart!.summary as any).couponCode);
+      couponPrePopulated.current = true;
+    }
+  }, [(cart?.summary as any)?.couponCode]);
 
   const items = cart?.items ?? [];
   const summary = cart?.summary ?? { totalItems: 0, totalAmount: 0, itemCount: 0 };
@@ -75,9 +84,12 @@ export function CheckoutPage() {
         ...(notes && { notes }),
       }).unwrap();
       toast.success('Buyurtma muvaffaqiyatli yaratildi!');
-      // result massiv bo'lishi mumkin (seller bo'yicha guruhlangan)
       const orderId = Array.isArray(result) ? result[0]?.id : result?.id;
-      navigate(orderId ? `/orders/${orderId}` : '/orders');
+      if (orderId && paymentMethod !== 'cod') {
+        navigate(`/payment/${orderId}`);
+      } else {
+        navigate(orderId ? `/orders/${orderId}` : '/orders');
+      }
     } catch (err: any) {
       toast.error(err?.data?.message ?? 'Xatolik yuz berdi');
     }

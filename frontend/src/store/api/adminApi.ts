@@ -93,6 +93,7 @@ export const adminApiSlice = apiSlice.injectEndpoints({
         url: "/coupons",
         params: params ?? {},
       }),
+      providesTags: ["Coupons"],
     }),
 
     createCoupon: builder.mutation({
@@ -101,6 +102,7 @@ export const adminApiSlice = apiSlice.injectEndpoints({
         method: "POST",
         body,
       }),
+      invalidatesTags: ["Coupons"],
     }),
 
     updateCoupon: builder.mutation({
@@ -109,6 +111,7 @@ export const adminApiSlice = apiSlice.injectEndpoints({
         method: "PATCH",
         body,
       }),
+      invalidatesTags: ["Coupons"],
     }),
 
     deleteCoupon: builder.mutation({
@@ -116,6 +119,7 @@ export const adminApiSlice = apiSlice.injectEndpoints({
         url: `/coupons/${id}`,
         method: "DELETE",
       }),
+      invalidatesTags: ["Coupons"],
     }),
 
     sendPromo: builder.mutation({
@@ -135,6 +139,7 @@ export const adminApiSlice = apiSlice.injectEndpoints({
         url: "/delivery",
         params: params ?? {},
       }),
+      providesTags: ["Delivery"],
     }),
 
     assignCourier: builder.mutation({
@@ -151,6 +156,122 @@ export const adminApiSlice = apiSlice.injectEndpoints({
         method: "POST",
         body: { courierId, notes },
       }),
+      invalidatesTags: ["Delivery"],
+    }),
+
+    // ─── Reviews ───────────────────────────────────────────────────────
+    getAdminReviews: builder.query({
+      query: (params?: Record<string, unknown>) => ({
+        url: "/reviews/admin",
+        params: params ?? {},
+      }),
+      providesTags: ["Reviews"],
+    }),
+
+    publishReview: builder.mutation({
+      query: (id: string) => ({
+        url: `/reviews/${id}/publish`,
+        method: "PATCH",
+      }),
+      invalidatesTags: ["Reviews"],
+    }),
+
+    unpublishReview: builder.mutation({
+      query: (id: string) => ({
+        url: `/reviews/${id}/unpublish`,
+        method: "PATCH",
+      }),
+      invalidatesTags: ["Reviews"],
+    }),
+
+    // ─── Categories ────────────────────────────────────────────────────
+    getAdminCategories: builder.query({
+      query: () => "/categories/tree",
+      providesTags: ["Categories"],
+    }),
+
+    createAdminCategory: builder.mutation({
+      query: (body: Record<string, unknown>) => ({
+        url: "/categories",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Categories"],
+    }),
+
+    updateAdminCategory: builder.mutation({
+      query: ({ id, ...body }: { id: string } & Record<string, unknown>) => ({
+        url: `/categories/${id}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Categories"],
+    }),
+
+    deleteAdminCategory: builder.mutation({
+      query: (id: string) => ({
+        url: `/categories/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Categories"],
+    }),
+
+    // ─── Banners ───────────────────────────────────────────────────────
+    getAdminBanners: builder.query({
+      query: () => "/banners",
+      providesTags: ["Banners"],
+    }),
+
+    createBanner: builder.mutation({
+      query: (body: Record<string, unknown>) => ({
+        url: "/banners",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Banners"],
+    }),
+
+    updateBanner: builder.mutation({
+      query: ({ id, ...body }: { id: string } & Record<string, unknown>) => ({
+        url: `/banners/${id}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Banners"],
+    }),
+
+    deleteBanner: builder.mutation({
+      query: (id: string) => ({
+        url: `/banners/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Banners"],
+    }),
+
+    // ─── Sellers ───────────────────────────────────────────────────────
+    getAdminSellers: builder.query({
+      query: (params?: Record<string, unknown>) => ({
+        url: "/users/sellers",
+        params: params ?? {},
+      }),
+      providesTags: ["User"],
+    }),
+
+    approveSellers: builder.mutation({
+      query: (userId: string) => ({
+        url: `/users/${userId}/approve-seller`,
+        method: "POST",
+      }),
+      invalidatesTags: ["User"],
+    }),
+
+    rejectSeller: builder.mutation({
+      query: ({ userId, reason }: { userId: string; reason: string }) => ({
+        url: `/users/${userId}/reject-seller`,
+        method: "POST",
+        body: { reason },
+      }),
+      invalidatesTags: ["User"],
     }),
   }),
 });
@@ -174,4 +295,22 @@ export const {
   useGetDeliveryStatsQuery,
   useGetAllDeliveriesQuery,
   useAssignCourierMutation,
+  // Reviews
+  useGetAdminReviewsQuery,
+  usePublishReviewMutation,
+  useUnpublishReviewMutation,
+  // Categories
+  useGetAdminCategoriesQuery,
+  useCreateAdminCategoryMutation,
+  useUpdateAdminCategoryMutation,
+  useDeleteAdminCategoryMutation,
+  // Banners
+  useGetAdminBannersQuery,
+  useCreateBannerMutation,
+  useUpdateBannerMutation,
+  useDeleteBannerMutation,
+  // Sellers
+  useGetAdminSellersQuery,
+  useApproveSellersMutation,
+  useRejectSellerMutation,
 } = adminApiSlice;

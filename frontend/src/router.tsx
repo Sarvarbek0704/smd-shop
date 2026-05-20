@@ -20,8 +20,10 @@ import { ChatPage } from "@/pages/chat/ChatPage";
 import { SellerLayout } from "@/pages/seller/SellerLayout";
 import { SellerDashboard } from "@/pages/seller/SellerDashboard";
 import { SellerProducts } from "@/pages/seller/SellerProducts";
+import { SellerProductForm } from "@/pages/seller/SellerProductForm";
 import { SellerOrders } from "@/pages/seller/SellerOrders";
 import { SellerReviews } from "@/pages/seller/SellerReviews";
+import { SellerAnalytics } from "@/pages/seller/SellerAnalytics";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
@@ -31,6 +33,20 @@ import { AdminOrders } from "@/pages/admin/AdminOrders";
 import { AdminCoupons } from "@/pages/admin/AdminCoupons";
 import { AdminDelivery } from "@/pages/admin/AdminDelivery";
 import { AdminPromo } from "@/pages/admin/AdminPromo";
+import { AdminAnalytics } from "@/pages/admin/AdminAnalytics";
+import { AdminPayments } from "@/pages/admin/AdminPayments";
+import { AdminSellers } from "@/pages/admin/AdminSellers";
+import { AdminCategories } from "@/pages/admin/AdminCategories";
+import { AdminBanners } from "@/pages/admin/AdminBanners";
+import { AdminReviews } from "@/pages/admin/AdminReviews";
+import { DeliveryLayout } from "@/pages/delivery/DeliveryLayout";
+import { DeliveryOrders } from "@/pages/delivery/DeliveryOrders";
+import { DeliveryOrderDetail } from "@/pages/delivery/DeliveryOrderDetail";
+import { DeliveryHistory } from "@/pages/delivery/DeliveryHistory";
+import { BecomeSeller } from "@/pages/profile/BecomeSeller";
+import { PaymentPage } from "@/pages/payment/PaymentPage";
+import { PaymentSimulator } from "@/pages/payment/PaymentSimulator";
+import { AboutPage, ContactPage, PrivacyPage, TermsPage } from "@/pages/static/StaticPages";
 
 export const router = createBrowserRouter([
   {
@@ -43,6 +59,13 @@ export const router = createBrowserRouter([
       { path: "catalog", element: <CatalogPage /> },
       { path: "catalog/:categorySlug", element: <CatalogPage /> },
       { path: "products/:slug", element: <ProductPage /> },
+      { path: "about", element: <AboutPage /> },
+      { path: "contact", element: <ContactPage /> },
+      { path: "privacy", element: <PrivacyPage /> },
+      { path: "terms", element: <TermsPage /> },
+
+      // Payment simulator — public (token-based auth, no user session needed)
+      { path: "payment/simulate/:token", element: <PaymentSimulator /> },
 
       // Guest only
       {
@@ -64,8 +87,10 @@ export const router = createBrowserRouter([
           { path: "orders/:id", element: <OrderDetailPage /> },
           { path: "wishlist", element: <WishlistPage /> },
           { path: "profile", element: <ProfilePage /> },
+          { path: "profile/become-seller", element: <BecomeSeller /> },
           { path: "notifications", element: <NotificationsPage /> },
           { path: "chat", element: <ChatPage /> },
+          { path: "payment/:orderId", element: <PaymentPage /> },
         ],
       },
 
@@ -79,9 +104,28 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <SellerDashboard /> },
               { path: "products", element: <SellerProducts /> },
+              { path: "products/new", element: <SellerProductForm /> },
+              { path: "products/:id/edit", element: <SellerProductForm /> },
               { path: "orders", element: <SellerOrders /> },
               { path: "reviews", element: <SellerReviews /> },
+              { path: "analytics", element: <SellerAnalytics /> },
               { path: "chat", element: <ChatPage /> },
+            ],
+          },
+        ],
+      },
+
+      // Delivery (Courier)
+      {
+        path: "delivery",
+        element: <RoleGuard roles={["delivery", "admin"]} />,
+        children: [
+          {
+            element: <DeliveryLayout />,
+            children: [
+              { index: true, element: <DeliveryOrders /> },
+              { path: ":id", element: <DeliveryOrderDetail /> },
+              { path: "history", element: <DeliveryHistory /> },
             ],
           },
         ],
@@ -96,10 +140,16 @@ export const router = createBrowserRouter([
             element: <AdminLayout />,
             children: [
               { index: true, element: <AdminDashboard /> },
+              { path: "analytics", element: <AdminAnalytics /> },
               { path: "users", element: <AdminUsers /> },
+              { path: "sellers", element: <AdminSellers /> },
               { path: "products", element: <AdminProducts /> },
               { path: "orders", element: <AdminOrders /> },
+              { path: "payments", element: <AdminPayments /> },
+              { path: "categories", element: <AdminCategories /> },
+              { path: "banners", element: <AdminBanners /> },
               { path: "coupons", element: <AdminCoupons /> },
+              { path: "reviews", element: <AdminReviews /> },
               { path: "delivery", element: <AdminDelivery /> },
               { path: "promo", element: <AdminPromo /> },
             ],

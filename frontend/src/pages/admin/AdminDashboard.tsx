@@ -91,7 +91,7 @@ export function AdminDashboard() {
     <div>
       <h1 className="text-xl font-bold text-slate-900 mb-6">Dashboard</h1>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {cards.map((card, i) => (
           <motion.div
             key={card.label}
@@ -122,10 +122,10 @@ export function AdminDashboard() {
           <h3 className="text-sm font-semibold text-slate-900 mb-3">
             Rollar bo'yicha
           </h3>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             {Object.entries(users.byRole as Record<string, number>).map(
               ([role, count]) => (
-                <div key={role} className="text-center">
+                <div key={role} className="text-center min-w-[60px]">
                   <p className="text-lg font-bold text-slate-900">{count}</p>
                   <p className="text-xs text-slate-500 uppercase">{role}</p>
                 </div>
@@ -141,7 +141,31 @@ export function AdminDashboard() {
           <h3 className="text-sm font-semibold text-slate-900 mb-4">
             Oxirgi buyurtmalar
           </h3>
-          <div className="overflow-x-auto">
+
+          {/* Mobile cards */}
+          <div className="space-y-2 md:hidden">
+            {recent.slice(0, 8).map((order: any) => (
+              <div key={order.id} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{order.order_number}</p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {order.buyer?.firstName} {order.buyer?.lastName}
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <p className="text-sm font-bold text-slate-900">
+                    {Number(order.final_amount).toLocaleString("uz-UZ")}
+                  </p>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-700">
+                    {order.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-slate-500 border-b border-stone-100">
@@ -154,13 +178,8 @@ export function AdminDashboard() {
               </thead>
               <tbody>
                 {recent.slice(0, 8).map((order: any) => (
-                  <tr
-                    key={order.id}
-                    className="border-b border-stone-50 last:border-0"
-                  >
-                    <td className="py-2.5 pr-4 font-medium text-slate-900">
-                      {order.order_number}
-                    </td>
+                  <tr key={order.id} className="border-b border-stone-50 last:border-0">
+                    <td className="py-2.5 pr-4 font-medium text-slate-900">{order.order_number}</td>
                     <td className="py-2.5 pr-4 text-slate-600">
                       {order.buyer?.firstName} {order.buyer?.lastName}
                     </td>

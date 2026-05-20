@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAppSelector, useAppDispatch } from '@/store/store';
 import { selectCurrentUser, setCredentials } from '@/store/slices/authSlice';
-import { apiSlice } from '@/store/api/apiSlice';
+import { useUpdateMeMutation, useChangePasswordMutation } from '@/store/api/usersApi';
 import {
   User,
   Mail,
@@ -113,7 +113,7 @@ export function ProfilePage() {
 }
 
 function ProfileTab({ user, dispatch }: { user: any; dispatch: any }) {
-  const [saving, setSaving] = useState(false);
+  const [updateMe, { isLoading: saving }] = useUpdateMeMutation();
 
   const { register, handleSubmit, formState: { errors } } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -124,29 +124,12 @@ function ProfileTab({ user, dispatch }: { user: any; dispatch: any }) {
   });
 
   const onSubmit = async (data: ProfileForm) => {
-    setSaving(true);
     try {
-      const res = await fetch('/api/users/me', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${JSON.parse(localStorage.getItem('auth') ?? '{}').accessToken}`,
-        },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
-        dispatch(setCredentials({
-          user: { ...user, firstName: data.firstName, lastName: data.lastName ?? null },
-        }));
-        toast.success('Profil yangilandi');
-      } else {
-        toast.error(result.message ?? 'Xatolik');
-      }
-    } catch {
-      toast.error('Xatolik yuz berdi');
-    } finally {
-      setSaving(false);
+      const updated = await updateMe(data).unwrap();
+      dispatch(setCredentials({ user: { ...user, ...updated } }));
+      toast.success('Profil yangilandi');
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? 'Xatolik yuz berdi');
     }
   };
 
@@ -204,7 +187,7 @@ function ProfileTab({ user, dispatch }: { user: any; dispatch: any }) {
 }
 
 function PasswordTab() {
-  const [saving, setSaving] = useState(false);
+  const [changePassword, { isLoading: saving }] = useChangePasswordMutation();
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
 
@@ -213,30 +196,12 @@ function PasswordTab() {
   });
 
   const onSubmit = async (data: PasswordForm) => {
-    setSaving(true);
     try {
-      const res = await fetch('/api/users/me/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${JSON.parse(localStorage.getItem('auth') ?? '{}').accessToken}`,
-        },
-        body: JSON.stringify({
-          currentPassword: data.currentPassword,
-          newPassword: data.newPassword,
-        }),
-      });
-      if (res.status === 204 || res.ok) {
-        toast.success('Parol o\'zgartirildi. Qayta kiring.');
-        reset();
-      } else {
-        const result = await res.json();
-        toast.error(result.message ?? 'Xatolik');
-      }
-    } catch {
-      toast.error('Xatolik yuz berdi');
-    } finally {
-      setSaving(false);
+      await changePassword({ currentPassword: data.currentPassword, newPassword: data.newPassword }).unwrap();
+      toast.success('Parol o\'zgartirildi. Qayta kiring.');
+      reset();
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? 'Xatolik yuz berdi');
     }
   };
 

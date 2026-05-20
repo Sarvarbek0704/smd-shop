@@ -155,7 +155,7 @@ export function AdminUsers() {
                     {u.firstName?.[0]?.toUpperCase() ?? "U"}
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
                       {u.firstName} {u.lastName}
                       {!u.isActive && (
                         <span className="ml-2 text-[10px] text-red-600 font-semibold">
@@ -163,11 +163,11 @@ export function AdminUsers() {
                         </span>
                       )}
                     </p>
-                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
                       {u.email && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3" />
-                          {u.email}
+                        <span className="flex items-center gap-1 truncate max-w-[160px] sm:max-w-none">
+                          <Mail className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{u.email}</span>
                         </span>
                       )}
                       {u.phone && (
@@ -178,15 +178,17 @@ export function AdminUsers() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {u.roles?.map((r: string) => (
-                      <span
-                        key={r}
-                        className="px-2 py-0.5 bg-stone-100 text-slate-600 text-[10px] font-semibold rounded uppercase"
-                      >
-                        {r}
-                      </span>
-                    ))}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="hidden sm:flex items-center gap-1.5">
+                      {u.roles?.map((r: string) => (
+                        <span
+                          key={r}
+                          className="px-2 py-0.5 bg-stone-100 text-slate-600 text-[10px] font-semibold rounded uppercase"
+                        >
+                          {r}
+                        </span>
+                      ))}
+                    </div>
                     <ChevronDown
                       className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
                     />

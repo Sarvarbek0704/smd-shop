@@ -9,7 +9,7 @@ import { Brackets, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../database/entities/user.entity';
 import { Role } from '../../database/entities/role.entity';
-import { RoleName } from '../../database/entities/enums';
+import { RoleName, SellerStatus } from '../../database/entities/enums';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UsersQueryDto } from './dto/users-query.dto';
@@ -112,6 +112,40 @@ export class UsersService {
     );
   }
 
+  async listSellers(query: UsersQueryDto): Promise<PaginatedResult<unknown>> {
+    const qb = this.userRepo
+      .createQueryBuilder('u')
+      .leftJoinAndSelect('u.roles', 'r')
+      .where('u.sellerStatus IS NOT NULL')
+      .orderBy('u.createdAt', 'DESC');
+
+    if (query.search) {
+      const s = `%${query.search.toLowerCase()}%`;
+      qb.andWhere(
+        new Brackets((b) => {
+          b.where('LOWER(u.email) LIKE :s', { s })
+            .orWhere('LOWER(u.firstName) LIKE :s', { s })
+            .orWhere('LOWER(u.lastName) LIKE :s', { s })
+            .orWhere('u.phone LIKE :s', { s });
+        }),
+      );
+    }
+
+    if (query.sellerStatus) {
+      qb.andWhere('u.sellerStatus = :ss', { ss: query.sellerStatus });
+    }
+
+    qb.skip((query.page - 1) * query.limit).take(query.limit);
+    const [items, total] = await qb.getManyAndCount();
+
+    return buildPaginated(
+      items.map((u) => this.toProfileDto(u)),
+      total,
+      query.page,
+      query.limit,
+    );
+  }
+
   async assignRole(userId: string, roleName: RoleName) {
     const user = await this.findById(userId);
     const role = await this.roleRepo.findOneByOrFail({ name: roleName });
@@ -157,6 +191,42 @@ export class UsersService {
     return this.toProfileDto(user);
   }
 
+  async applyToBeSeller(userId: string, dto: { storeName: string; storeDescription: string }) {
+    const user = await this.findById(userId);
+    if (user.roles.some((r) => r.name === RoleName.SELLER)) {
+      throw new BadRequestException('Siz allaqachon sotuvchisiz');
+    }
+    if (user.sellerStatus === SellerStatus.PENDING) {
+      throw new BadRequestException('Sizning arizangiz kutilmoqda');
+    }
+
+    user.sellerStatus = SellerStatus.PENDING;
+    user.storeName = dto.storeName;
+    user.storeDescription = dto.storeDescription;
+    await this.userRepo.save(user);
+    return this.toProfileDto(user);
+  }
+
+  async approveSeller(userId: string) {
+    const user = await this.findById(userId);
+    const sellerRole = await this.roleRepo.findOneByOrFail({ name: RoleName.SELLER });
+
+    user.sellerStatus = SellerStatus.APPROVED;
+    if (!user.roles.some((r) => r.name === RoleName.SELLER)) {
+      user.roles = [...user.roles, sellerRole];
+    }
+    await this.userRepo.save(user);
+    return this.toProfileDto(user);
+  }
+
+  async rejectSeller(userId: string, reason: string) {
+    const user = await this.findById(userId);
+    user.sellerStatus = SellerStatus.REJECTED;
+    user.rejectedReason = reason;
+    await this.userRepo.save(user);
+    return this.toProfileDto(user);
+  }
+
   // ───────────── helpers ─────────────
 
   private toProfileDto(user: User) {
@@ -169,6 +239,10 @@ export class UsersService {
       avatarUrl: user.avatarUrl,
       isVerified: user.isVerified,
       isActive: user.isActive,
+      sellerStatus: user.sellerStatus,
+      storeName: user.storeName,
+      storeDescription: user.storeDescription,
+      rejectedReason: user.rejectedReason,
       roles: (user.roles ?? []).map((r) => r.name),
       createdAt: user.createdAt,
     };

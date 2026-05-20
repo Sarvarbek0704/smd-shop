@@ -59,4 +59,13 @@ export default () => ({
       'image/jpeg,image/png,image/webp,image/gif'
     ).split(','),
   },
+
+  payment: {
+    paymeKey: process.env.PAYME_KEY ?? 'test_payme_secret_key_mock_32chars',
+    paymeId: process.env.PAYME_MERCHANT_ID ?? 'mock_payme_merchant',
+    clickSecret: process.env.CLICK_SECRET ?? 'test_click_secret_mock',
+    clickMerchantId: process.env.CLICK_MERCHANT_ID ?? 'mock_click_merchant',
+    uzumSecret: process.env.UZUM_SECRET ?? 'test_uzum_secret_mock',
+    simulatorBaseUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  },
 });

@@ -45,6 +45,25 @@ export class ReviewsController {
   }
 
   @ApiBearerAuth()
+  @Get('seller')
+  @Roles(RoleName.SELLER)
+  @ApiOperation({ summary: "Seller mahsulotlarining sharhlari" })
+  getSellerReviews(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ReviewsQueryDto,
+  ) {
+    return this.reviewsService.findBySellerProducts(user.id, query);
+  }
+
+  @ApiBearerAuth()
+  @Get('admin')
+  @Roles(RoleName.ADMIN)
+  @ApiOperation({ summary: 'Barcha sharhlar (admin)' })
+  getAdminReviews(@Query() query: ReviewsQueryDto) {
+    return this.reviewsService.findAll(query);
+  }
+
+  @ApiBearerAuth()
   @Post()
   @ApiOperation({ summary: 'Sharh yozish' })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateReviewDto) {
@@ -72,6 +91,22 @@ export class ReviewsController {
     @Body() dto: SellerReplyDto,
   ) {
     return this.reviewsService.sellerReply(id, user.id, dto.reply);
+  }
+
+  @ApiBearerAuth()
+  @Patch(':id/publish')
+  @Roles(RoleName.ADMIN)
+  @ApiOperation({ summary: "Sharhni chop etish (admin)" })
+  publish(@Param('id', ParseUUIDPipe) id: string) {
+    return this.reviewsService.setPublished(id, true);
+  }
+
+  @ApiBearerAuth()
+  @Patch(':id/unpublish')
+  @Roles(RoleName.ADMIN)
+  @ApiOperation({ summary: "Sharhni yashirish (admin)" })
+  unpublish(@Param('id', ParseUUIDPipe) id: string) {
+    return this.reviewsService.setPublished(id, false);
   }
 
   @ApiBearerAuth()

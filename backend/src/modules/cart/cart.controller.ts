@@ -60,4 +60,18 @@ export class CartController {
   clearCart(@CurrentUser() user: AuthUser) {
     return this.cartService.clearCart(user.id);
   }
+
+  @Post('apply-coupon')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Kuponi savatga qo\'llash' })
+  applyCoupon(@CurrentUser() user: AuthUser, @Body() body: { code: string }) {
+    return this.cartService.applyCoupon(user.id, body.code);
+  }
+
+  @Delete('remove-coupon')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Kuponni savatdan olib tashlash' })
+  removeCoupon(@CurrentUser() user: AuthUser) {
+    return this.cartService.removeCoupon(user.id);
+  }
 }
