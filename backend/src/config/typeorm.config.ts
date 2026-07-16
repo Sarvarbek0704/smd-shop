@@ -10,7 +10,7 @@ export const typeOrmConfig = (
     return {
       type: 'postgres',
       url,
-      ssl: { rejectUnauthorized: false },
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
       entities: [__dirname + '/../database/entities/*.entity{.ts,.js}'],
       migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
       synchronize: configService.get<boolean>('database.synchronize'),
