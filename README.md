@@ -20,11 +20,11 @@ Not a store with a payment button bolted on, but the full stack a real shop need
 
 ---
 
-## Payments (Payme Merchant API)
+## Payments (Payme + Click)
 
-This is the part most e-commerce demos skip or fake, so it goes first. SMD Shop implements the real [Payme Merchant API](https://developer.help.paycom.uz/) — the JSON-RPC protocol Payme calls on the merchant's server — not a mock.
+This is the part most e-commerce demos skip or fake, so it goes first. SMD Shop implements two real Uzbek payment providers, not mocks: the [Payme Merchant API](https://developer.help.paycom.uz/) (the JSON-RPC protocol Payme calls on the merchant's server) and Click's two-step prepare/complete flow.
 
-Two things that protocol gets wrong easily, and this does not:
+Two things the Payme protocol gets wrong easily, and this does not:
 
 **Amounts are in tiyin, and the check is exact.** Payme sends money in tiyin — 1 som is 100 tiyin — and a merchant that compares against som is wrong by a factor of a hundred. `CheckPerformTransaction` converts and compares exactly:
 
@@ -49,6 +49,8 @@ Money is stored as `numeric` throughout — `numeric(12,2)` for prices, `numeric
 **Real-time customer chat.** A WebSocket gateway with online-presence tracking, so a customer and a support agent hold a live conversation rather than trading emails.
 
 **Recommendations from behaviour.** "Also viewed" and "recently viewed", driven by what customers actually do rather than a static "related products" list.
+
+**A marketplace, structurally.** Sellers, seller–buyer chat, and orders that carry a `sellerId` — the multi-vendor shape is already in the schema. Turning that into a real marketplace, where money splits to sellers and they can withdraw it, is the largest item in the improvement spec.
 
 **The rest of a real shop.** OTP-based auth with email delivery, JWT access and refresh tokens, delivery options and addresses, the order lifecycle and history, notifications, and an admin surface with analytics.
 
@@ -87,7 +89,9 @@ Being a showcase rather than a product, this says what is not done as plainly as
 - **No tests yet.** The Payme state machine and the money arithmetic are exactly the code that most needs them; that is the first thing this project should grow.
 - **Build type-checking is skipped on the frontend deploy** (`vite build` with no preceding `tsc --noEmit`), a shortcut taken to get a Vercel build green. It belongs in CI instead, so a type error fails the build rather than being stepped around.
 
-Neither is hidden, because neither should be. A portfolio is more convincing when it knows its own gaps — and both are written up, with the concurrency and money-precision work they depend on, in [`docs/YAXSHILASH-TZ.md`](./docs/YAXSHILASH-TZ.md) (in Uzbek).
+Neither is hidden, because neither should be. A portfolio is more convincing when it knows its own gaps.
+
+Both — and the work that grows this from a shop into a marketplace platform — are written up in [`docs/YAXSHILASH-TZ.md`](./docs/YAXSHILASH-TZ.md) (in Uzbek): the concurrency fixes the money path needs (an atomic Payme lock, an atomic stock decrement to stop overselling, order totals in `numeric`), then the expansions that build on them — seller settlement and payouts, a payment-provider abstraction so a third processor is one class, TTL-based stock reservation, and real-time delivery tracking over the WebSocket layer that already exists.
 
 ---
 

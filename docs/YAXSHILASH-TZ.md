@@ -15,8 +15,9 @@ Tanqiddan oldin, halol e'tirof. Bu loyiha texnik jihatdan **eng malakali**:
 
 | | |
 |---|---|
-| **Payme Merchant API — real** | Mock emas. `CheckPerformTransaction`, `CreateTransaction`, `PerformTransaction` protokolga mos. Summa **tiyinda** solishtiriladi (`payments.service.ts:370`) |
-| **Idempotentlik niyati bor** | Perform `SUCCESS` holatini qayta qaytaradi, `CANCELLED` ni rad etadi (`:499,489`) — Payme retry'lariga tayyor. ⚠️ Lekin qulfsiz — 1-vazifa |
+| **IKKI to'lov provayderi — real** | Mock emas. **Payme** (`CheckPerformTransaction`, `CreateTransaction`, `PerformTransaction`) **va Click** (`prepare` + `complete` ikki bosqichli). Ikkalasi ham protokolga mos, summa **tiyinda** solishtiriladi (`payments.service.ts:370`) |
+| **Idempotentlik niyati bor** | Perform `SUCCESS` holatini qayta qaytaradi, `CANCELLED` ni rad etadi (`:499,489`) — retry'larga tayyor. ⚠️ Lekin qulfsiz — 1-vazifa |
+| **Ko'p sotuvchili marketplace** | `SELLER` roli, `order.sellerId`, sotuvchi–xaridor chat. Struktura bor. ⚠️ Lekin pul sotuvchiga **oqmaydi** — kengaytirish, 10-vazifa |
 | **Pul `numeric`** | `numeric(12,2)` narx, `numeric(14,2)` buyurtma. **Float yo'q** bazada |
 | **Migratsiyalar real** | `synchronize` env bilan, productionda `false` |
 | **Qidiruv `tsvector`** | `ILIKE` emas — `to_tsquery` + `ts_rank`. ⚠️ Lekin crash xavfi — 3-vazifa |
@@ -157,6 +158,57 @@ Quyidagi vazifalar shu poydevorni **buzmasdan** yaxshilaydi.
   - Oddiy qidiruv oldingidek ishlaydi
   - **Test:** maxsus belgili so'rovlar 200 qaytaradi (bo'sh yoki natija bilan)
 
+### 3.5. Oversell poygasi — oxirgi mahsulot ikki marta sotiladi 🔥
+
+- **Maqsad:** Ikki xaridor oxirgi mahsulotni bir vaqtda sotib olsa —
+  ikkalasiga ham sotiladi, ombor **manfiy** bo'ladi.
+
+- **Hozirgi holat (o'lchangan):** `orders.service.ts` —
+  ```
+  :90   if (item.variant.stockQuantity < item.quantity) throw ...  ← tekshiruv
+                                                                      (tranzaksiyadan OLDIN
+                                                                       yuklangan ma'lumot)
+  :133  await this.dataSource.transaction(async (manager) => {
+  :177    await manager.decrement(ProductVariant, {id}, 'stockQuantity', qty)  ← shartsiz
+  ```
+  `decrement()` ning **o'zi** atomik (`SET x = x - n`), lekin **tekshiruv**
+  eski ma'lumotga qaraydi va decrement **shartsiz**. Ikki parallel checkout:
+  ```
+  T1: stockQuantity=1 o'qidi (tranzaksiyadan oldin)
+  T2: stockQuantity=1 o'qidi
+  T1: 1 >= 1 ✓ → decrement → stock 0
+  T2: 1 >= 1 ✓ → decrement → stock -1   ← ikki marta sotildi
+  ```
+  Bu — Payme qulfi (1-vazifa) bilan **bir sinf**: tekshiruv va o'zgartirish
+  atomik emas.
+
+- **Fayllar:** `orders.service.ts`.
+
+- **Ish:**
+  - Tekshiruv va decrement'ni **bitta shartli operator** qiling:
+    ```sql
+    UPDATE "product_variants"
+       SET "stock_quantity" = "stock_quantity" - $1
+     WHERE "id" = $2 AND "stock_quantity" >= $1
+    ```
+    `affected === 0` → omborда yetarli emas → butun tranzaksiyani rollback +
+    aniq xato ("zaxirada qolmadi")
+  - Bu allaqachon `dataSource.transaction` ichida (`:133`) — faqat
+    tekshiruvni o'sha operatorga ko'chirish kerak
+  - ⚠️ `CHECK ("stock_quantity" >= 0)` constraint qo'shing — ikkinchi
+    mudofaa chizig'i (kod xato qilsa, baza rad etadi)
+
+- **Definition of Done:**
+  - Oxirgi mahsulotга ikki parallel checkout → **bittasi** muvaffaqiyat,
+    ikkinchisi "zaxirada qolmadi"
+  - Ombor hech qachon manfiy bo'lmaydi (`CHECK` kafolatlaydi)
+  - **Test:** parallel checkout → 1 buyurtma, stock 0 (Testcontainers)
+
+- ⚠️ **Nega bu 1-vazifa bilan birga:** Payme qulfi, buyurtma jami, va
+  oversell — uchalasi ham **bir sinf** (atomiklik/poyga). Ularni birga
+  o'ylash mantiqiy: hammasi "tekshir → o'zgartir" ni bitta atomik qadam
+  qilish.
+
 ### 4. Validatsiyasiz endpointlar — 4 ta
 
 - **Maqsad:** 4 endpoint `@Body() x: { ... }` inline tip — `ValidationPipe`
@@ -241,50 +293,181 @@ Quyidagi vazifalar shu poydevorni **buzmasdan** yaxshilaydi.
 
 ---
 
-## FAZA 4 — Kengaytirish (ixtiyoriy, yo'nalishga qarab)
+## FAZA 4 — Kattalashtirish (kengaytirish)
 
-> Bu vazifalar "halol eksponat" uchun **shart emas**, lekin loyihani
-> chuqurlashtiradi. Faqat vaqt bo'lsa.
+> Yuqoridagi 1–7 loyihani **to'g'ri** qiladi. Bu faza uni **kattaroq va
+> chuqurroq** qiladi — yangi qobiliyatlar bilan. Muhim: bular CRUD
+> xususiyatlar ro'yxati emas, balki **texnik jihatdan qiyin va mavjud
+> tuzilmaga bog'langan** kengaytirishlar. Har biri eksponatga yangi
+> "chuqurlik nuqtasi" qo'shadi.
 
-### 8. O'zbekcha qidiruv morfologiyasi
+### 10. Sotuvchi hisob-kitobi — pulni marketplace qiling 🔥
+
+- **Maqsad:** Marketplace **strukturasi bor** (`SELLER` roli,
+  `order.sellerId`), lekin **pul sotuvchiga oqmaydi**. Xaridor to'laydi →
+  pul platformada qoladi. Haqiqiy marketplace'da: komissiya ajratiladi,
+  qolgani sotuvchi balansiga o'tadi, sotuvchi payout so'raydi.
+
+- **Nega bu eng kuchli kengaytirish:** bu — nexus escrow'iga o'xshash
+  **pul taqsimoti** muammosi, va u:
+  - Mavjud tuzilmaga (`sellerId`, to'lov) **bog'langan**
+  - Texnik jihatdan **qiyin**: komissiya taqsimoti (`fee + net = jami`,
+    mustaqil yaxlitlamaslik), sotuvchi balansi, payout — hammasi atomik va
+    aniq (2-vazifadagi `numeric` intizomi bilan)
+  - Loyihani "do'kon" dan **"marketplace platforma"** ga ko'taradi
+
+- **Fayllar:** yangi entity `SellerBalance` / `SellerTransaction`,
+  yangi modul `apps/api/.../seller-payouts/` (yoki `payments` kengaytmasi),
+  `orders.service.ts` (to'lov bajarilganda taqsimla).
+
+- **Ish:**
+  - Buyurtma to'langanda (Payme/Click `Perform` muvaffaqiyatli):
+    - Platforma komissiyasini `numeric` da hisobla (bir marta yaxlitla)
+    - Sotuvchi ulushi = `jami - komissiya` (**qoldiq deb ta'rifla**, mustaqil
+      hisoblama — kelvindagi `allocate()` naqshi)
+    - Sotuvchi balansiga qo'sh (atomik, tranzaksiyada — 1-vazifa naqshi)
+  - Payout: sotuvchi so'raydi → balansdan yechiladi (shartli `UPDATE`,
+    oversell/nexus withdraw naqshi) → `SellerTransaction` yoziladi
+  - Invariant: `SUM(sotuvchi balanslari) + platforma = qabul qilingan pul`
+  - ⚠️ **Qaytarish (refund) holati:** buyurtma qaytarilса sotuvchi balansi
+    kamayishi kerak — manfiy bo'lib qolmasin (nexus'dagi savol)
+
+- **Definition of Done:**
+  - Buyurtma to'langanda pul komissiya/sotuvchi bo'lib taqsimlanadi, aniq
+  - Sotuvchi payout so'ray oladi, balansidan ortiq emas
+  - Yopiq tizim invarianti test bilan tekshiriladi
+  - **Test:** taqsimot property test (`komissiya + sotuvchi = jami`);
+    parallel payout → balansdan ortiq yechilmaydi
+
+### 11. To'lov provayderi abstraksiyasi — Uzum qo'shish "klass" bo'lsin
+
+- **Maqsad:** Payme va Click **alohida** yozilgan, lekin ko'p mantiq umumiy
+  (tranzaksiya holat mashinasi, tiyin, idempotentlik). Uchinchi provayder
+  (Uzum) qo'shish uchun hozir hammasini qaytadan yozish kerak.
+
+- **Nega bu qiziq:** bu — **arxitektura** kengaytmasi. `PaymentProvider`
+  interfeysi (yagona holat mashinasi, provayder faqat protokol farqini
+  beradi) → yangi provayder **klass**, qayta yozish emas. Bu SOLID va
+  domen modellashtirishni ko'rsatadi.
+
+- **Fayllar:** `payments/` — `PaymentProvider` interfeysi, `PaymeProvider`,
+  `ClickProvider`, umumiy `TransactionStateMachine`.
+
+- **Ish:**
+  - Umumiy holat mashinasini ajrat: `PENDING → SUCCESS/CANCELLED`,
+    idempotentlik, qulf (1-vazifa) — provayderdan **mustaqil**
+  - Har provayder faqat: so'rovni parse qilish, summani olish (tiyin),
+    javob formati. Qolgani umumiy
+  - Uzum'ni qo'shish `UzumProvider` klassi bilan namoyish qilinsin (yoki
+    kamida interfeys tayyor bo'lsin)
+
+- **Definition of Done:**
+  - Payme va Click bir xil holat mashinasidan foydalanadi
+  - Yangi provayder qo'shish = 1 klass (protokol adapteri)
+  - **Test:** har provayder uchun bir xil holat testlari o'tadi
+
+### 12. Ombor rezervatsiyasi — checkout paytida ushlab turish
+
+- **Maqsad:** 3.5-vazifa oversell'ni to'sadi, lekin boshqa muammo qoladi:
+  xaridor checkout boshlab, to'lovni bir necha daqiqa tugatmasa — mahsulot
+  **band bo'lmaydi**, boshqa xaridor uni sotib olishi mumkin, keyin birinchi
+  xaridor to'lovni tugatganда "yo'q" bo'ladi.
+
+- **Nega bu qiziq:** **TTL bilan rezervatsiya** — vaqtinchalik ushlab turish,
+  to'lanmasa avtomatik bo'shatish. Bu real e-commerce'da katta muammo va uni
+  to'g'ri qilish (poyga, TTL, bo'shatish) texnik jihatdan qiyin.
+
+- **Ish:**
+  - Checkout boshlanganda: `StockReservation` (mahsulot, miqdor, `expiresAt`)
+    yaratiladi, ombor **rezervatsiya bilan** kamaytiriladi (mavjud = jami −
+    faol rezervatsiyalar)
+  - To'lov bajarilsa: rezervatsiya → sotuv (doimiy)
+  - `expiresAt` o'tsa: rezervatsiya bo'shatiladi (cron yoki lazy tekshiruv)
+  - ⚠️ Bu 3.5 (oversell) ustiga quriladi — avval u
+
+- **Definition of Done:**
+  - Checkout mahsulotni ushlaydi; to'lanmasa TTL'dan keyin bo'shaydi
+  - Band mahsulot boshqa xaridorga ko'rinmaydi
+  - **Test:** rezervatsiya muddati tugasa ombor tiklanadi
+
+### 13. Tavsiyalarni chuqurlashtirish
+
+- **Maqsad:** Hozir "also-viewed" / "recently-viewed" — xulq-atvorga
+  asoslangan, lekin oddiy (bitta mahsuloga qarab). Kollaborativ filtrlash
+  ("sizga o'xshaganlar buni ham oldi") yoki kontentga asoslangan (kategoriya,
+  narx, teg bo'yicha o'xshashlik) qo'shish.
+
+- **Nega bu qiziq:** ML-ga yaqin, lekin ML shart emas. **Halol chegara:**
+  kollaborativ filtrlash yetarli ma'lumot (ko'p foydalanuvchi × xarid) talab
+  qiladi — portfolio'da bu **yo'q**. Shuning uchun:
+  - **Kontentga asoslangan** (item-item o'xshashlik) — ma'lumotsiz ham
+    ishlaydi, mantiqiy
+  - Kollaborativ — faqat namoyish sifatida, "ma'lumot ko'paysa yaxshilanadi"
+    deb hujjatlab
+- ⚠️ **ML modeli o'qitishни va'da qilmang** portfolio ma'lumoti bilan — bu
+  wisar'dagi xato. Kontentga asoslangan o'xshashlik + halol izoh.
+
+### 14. Yetkazib berish kuzatuvi — mavjud WebSocket ustida
+
+- **Maqsad:** Real-time chat uchun WebSocket gateway **allaqachon bor**
+  (`chat.gateway.ts`, online-presence bilan). Xuddi shu infratuzilma ustida
+  buyurtma holati real-time kuzatuvini qo'shish: "qabul qilindi → yig'ilyapti
+  → yo'lda → yetkazildi" — xaridor sahifani yangilamasdan ko'radi.
+
+- **Nega bu qiziq:** mavjud real-time infratuzilmani **qayta ishlatadi**
+  (yangi WebSocket qatlami emas), va buyurtma holat mashinasini frontend'ga
+  jonli bog'laydi.
+
+- **Ish:** buyurtma holati o'zgarganda WebSocket orqali xaridorga xabar;
+  frontend buyurtma sahifasida jonli holat. Kuryer/admin holatni o'zgartiradi.
+
+---
+
+## FAZA 5 — Kichik yaxshilashlar (vaqt bo'lsa)
+
+### 15. O'zbekcha qidiruv morfologiyasi
 
 - **Hozir:** `to_tsquery('simple', ...)` — `simple` konfiguratsiya
-  **morfologiyani bilmaydi**. `telefon` qidirilsa `telefonlar` topiladi
-  (prefix `:*` tufayli), lekin `kitoblar` qidirilsa `kitob` **topilmaydi**.
+  **morfologiyani bilmaydi**. `kitoblar` qidirilsa `kitob` **topilmaydi**.
 - **Ish:** o'zbek affikslarini normallashtiruvchi yengil stemmer (wisar
-  loyihasidagi `41-vazifa` bilan bir xil yondashuv — agar ikkala loyiha
-  ham davom etsa, umumiy paket qilish mumkin).
-- ⚠️ Bu — kengaytirish, tuzatish emas. Qidiruv **ishlaydi**, faqat
-  morfologik jihatdan to'liq emas.
+  loyihasidagi `41-vazifa` bilan bir xil — ikkala loyiha ham davom etsa,
+  umumiy paket).
+- ⚠️ Kengaytirish, tuzatish emas (3-vazifadagi crash boshqa narsa).
 
-### 9. Indeks auditi
+### 16. Indeks auditi
 
-- **Ish:** FK ustunlarida indeks bormi TEKSHIR (PostgreSQL FK'ga avtomatik
-  indeks yaratmaydi). Buyurtma → element, mahsulot → sharh kabi tez-tez
-  JOIN qilinadigan joylar. `EXPLAIN` bilan sekin so'rovlarni toping.
-- ⚠️ **O'lchovsiz indeks qo'shmang** — avval sekin so'rovni loglang, keyin
-  indeks.
+- FK ustunlarida indeks bormi TEKSHIR (Postgres FK'ga avtomatik yaratmaydi).
+  `EXPLAIN` bilan sekin so'rovlarni toping. ⚠️ **O'lchovsiz indeks qo'shmang**.
 
 ---
 
 ## Yakuniy tartib
 
-| Ustuvorlik | Vazifa | Nega |
-|---|---|---|
-| **1** | Payme perform atomiklik + qulf | Pul, va idempotentlik hozir majburlanmaydi |
-| **2** | Buyurtma jami `numeric` da | Float xatosi Payme to'lovini buzadi |
-| **3** | Qidiruv crash tuzatish | Oddiy so'rov serverni yiqitadi |
-| **4** | Validatsiya (4 endpoint) | Arzon, mustaqil |
-| **5** | Testlar (Payme + pul) | Yuqoridagilarni himoyalaydi |
-| **6** | CI + type-check | O'tkazib yuborilgan tsc'ni qaytaradi |
-| **7** | `DB_SYNCHRONIZE` himoyasi | Ma'lumot yo'qotish oldini oladi |
-| **8-9** | Qidiruv morfologiya, indeks | Kengaytirish — ixtiyoriy |
+| Faza | Vazifa | Tur | Nega |
+|---|---|---|---|
+| **1** | Payme perform atomiklik + qulf | 🐛 tuzatish | Pul; idempotentlik majburlanmaydi |
+| **1** | Buyurtma jami `numeric` da | 🐛 tuzatish | Float xatosi Payme to'lovini buzadi |
+| **2** | Qidiruv crash | 🐛 tuzatish | Oddiy so'rov serverni yiqitadi |
+| **2** | **Oversell poygasi** | 🐛 tuzatish | Oxirgi mahsulot ikki marta sotiladi |
+| **2** | Validatsiya (4 endpoint) | 🐛 tuzatish | Arzon, mustaqil |
+| **3** | Testlar (Payme + pul + oversell) | 🛡 sifat | Yuqoridagilarni himoyalaydi |
+| **3** | CI + type-check | 🛡 sifat | O'tkazib yuborilgan tsc |
+| **3** | `DB_SYNCHRONIZE` himoyasi | 🛡 sifat | Ma'lumot yo'qotish |
+| **4** | **Sotuvchi hisob-kitobi** | 🚀 kattalashtirish | "Do'kon" → "marketplace platforma" |
+| **4** | To'lov provayderi abstraksiyasi | 🚀 kattalashtirish | Uzum = 1 klass |
+| **4** | Ombor rezervatsiyasi (TTL) | 🚀 kattalashtirish | Real e-commerce muammosi |
+| **4** | Tavsiyalarni chuqurlashtirish | 🚀 kattalashtirish | ML-ga yaqin (halol chegara bilan) |
+| **4** | Yetkazib berish kuzatuvi | 🚀 kattalashtirish | Mavjud WebSocket'ni qayta ishlatadi |
+| **5** | Qidiruv morfologiya, indeks | ✨ kichik | Vaqt bo'lsa |
 
-⚠️ **1–3 — bug tuzatish, kengaytirish emas.** Ular **hoziroq** qilinsa,
-loyiha "ishlaydigan demo" dan "to'g'ri ishlaydigan tizim" ga o'tadi. 5–7 —
-sifat. 8–9 — vaqt bo'lsa.
+**Uchta yo'nalish, uchta maqsad:**
+- 🐛 **Tuzatish (1–2 faza)** — "ishlaydigan demo" → "to'g'ri ishlaydigan
+  tizim". Uchala pul/poyga bagi bir sinf: tekshir→o'zgartir ni atomik qil
+- 🛡 **Sifat (3 faza)** — o'zgarishni himoyalaydigan test va CI
+- 🚀 **Kattalashtirish (4 faza)** — "do'kon" → **"marketplace platforma"**.
+  Eng kuchlisi **sotuvchi hisob-kitobi** (10-vazifa): u mavjud marketplace
+  strukturasini haqiqiy pul oqimi bilan to'ldiradi
 
-Butun maqsad: bu **portfolio eksponati**, ya'ni ko'riladigan narsa —
-muhandislik sifati. Payme'ni qulf bilan atomik qilish, pulni aniq
-hisoblash, qidiruvni crash qilmaydigan qilish — bu uchtasi eksponatning
-qiymatini eng ko'p oshiradi.
+⚠️ **Kattalashtirish tuzatishdan keyin.** Sotuvchi hisob-kitobi (10) pul
+taqsimotini talab qiladi — u esa 1 va 2-vazifadagi atomiklik va `numeric`
+intizomi ustiga quriladi. Avval poydevor, keyin bino.
