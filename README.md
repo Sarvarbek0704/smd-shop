@@ -87,7 +87,7 @@ Being a showcase rather than a product, this says what is not done as plainly as
 - **No tests yet.** The Payme state machine and the money arithmetic are exactly the code that most needs them; that is the first thing this project should grow.
 - **Build type-checking is skipped on the frontend deploy** (`vite build` with no preceding `tsc --noEmit`), a shortcut taken to get a Vercel build green. It belongs in CI instead, so a type error fails the build rather than being stepped around.
 
-Neither is hidden, because neither should be. A portfolio is more convincing when it knows its own gaps.
+Neither is hidden, because neither should be. A portfolio is more convincing when it knows its own gaps — and both are written up, with the concurrency and money-precision work they depend on, in [`docs/YAXSHILASH-TZ.md`](./docs/YAXSHILASH-TZ.md) (in Uzbek).
 
 ---
 
