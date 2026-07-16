@@ -1,574 +1,129 @@
-# SMD Shop — Full-Stack Online Do'kon
+<div align="center">
 
-O'zbekiston bozori uchun ishlab chiqilgan to'liq funksional e-commerce platforma.  
-**NestJS 11 + React 19 + PostgreSQL (Neon) + RTK Query**
+# SMD Shop
 
----
+**A complete e-commerce platform for the Uzbek market — with the Payme integration done properly.**
 
-## Mundarija
+Not a store with a payment button bolted on, but the full stack a real shop needs: the Payme Merchant API implemented to spec, full-text product search, real-time customer chat, behavioural recommendations, coupons, delivery, and an admin back office. Twenty modules, twenty-seven tables, forty-six pages.
 
-- [Texnologiyalar](#texnologiyalar)
-- [Arxitektura](#arxitektura)
-- [Tez ishga tushirish](#tez-ishga-tushirish)
-- [Muhit sozlamalari (.env)](#muhit-sozlamalari)
-- [Ma'lumotlar bazasi](#malumotlar-bazasi)
-- [Seed (Demo ma'lumotlar)](#seed-demo-malumotlar)
-- [Demo hisoblar](#demo-hisoblar)
-- [API hujjatlari](#api-hujjatlari)
-- [Rollar va ruxsatlar](#rollar-va-ruxsatlar)
-- [To'lov tizimi](#tolov-tizimi)
-- [Modullar ro'yxati](#modullar-royxati)
-- [Papka strukturasi](#papka-strukturasi)
+[![NestJS](https://img.shields.io/badge/NestJS-11-e0234e?style=flat-square&logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![TypeORM](https://img.shields.io/badge/TypeORM-0.3-FE0803?style=flat-square)](https://typeorm.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+
+[Payme](#payments-payme-merchant-api) · [What it does](#what-it-does) · [Architecture](#architecture) · [Getting started](#getting-started)
+
+</div>
+
+> **What this is.** A portfolio project — a technical showcase of a complete e-commerce stack, not a business. Online retail in Uzbekistan is owned by Uzum and Wildberries, and no amount of engineering changes that. What this demonstrates instead is the engineering itself: the parts of a shop that are genuinely hard to get right, built to work rather than to demo.
 
 ---
 
-## Texnologiyalar
+## Payments (Payme Merchant API)
 
-### Backend
-| Texnologiya | Versiya | Maqsad |
-|---|---|---|
-| NestJS | 11 | Asosiy framework |
-| TypeORM | 0.3 | ORM (PostgreSQL bilan) |
-| PostgreSQL (Neon) | 16 | Ma'lumotlar bazasi |
-| JWT (access + refresh) | — | Autentifikatsiya |
-| bcrypt | 6 | Parol shifrlash |
-| Multer + Sharp | — | Rasm yuklash va optimallashtirish |
-| Socket.io | 4 | Real-vaqt chat |
-| @nestjs/throttler | 6 | Rate limiting |
-| Helmet | 8 | HTTP xavfsizlik headerlari |
-| Nodemailer | 8 | Email jo'natish |
-| Swagger | 11 | API hujjatlari |
-| class-validator | 0.15 | DTO validatsiya |
+This is the part most e-commerce demos skip or fake, so it goes first. SMD Shop implements the real [Payme Merchant API](https://developer.help.paycom.uz/) — the JSON-RPC protocol Payme calls on the merchant's server — not a mock.
 
-### Frontend
-| Texnologiya | Versiya | Maqsad |
-|---|---|---|
-| React | 19 | UI framework |
-| TypeScript | 5.7 | Type safety |
-| Vite | 6 | Build tool |
-| Redux Toolkit + RTK Query | 2 | State va API boshqaruv |
-| React Router | 7 | Routing |
-| Tailwind CSS | 4 | Stillar |
-| Framer Motion | 12 | Animatsiyalar |
-| react-hook-form + Zod | — | Formalar va validatsiya |
-| react-hot-toast | — | Bildirishnomalar |
-| Lucide React | — | Ikonkalar |
+Two things that protocol gets wrong easily, and this does not:
+
+**Amounts are in tiyin, and the check is exact.** Payme sends money in tiyin — 1 som is 100 tiyin — and a merchant that compares against som is wrong by a factor of a hundred. `CheckPerformTransaction` converts and compares exactly:
+
+```ts
+// Payme sends amount in tiyin (1 UZS = 100 tiyin)
+const expectedTiyin = Math.round(parseFloat(order.finalAmount) * 100);
+if (amount !== expectedTiyin) return this.paymeError(PAYME_ERROR.WRONG_AMOUNT, …);
+```
+
+**The transaction state machine is idempotent.** Payme retries — it may call `PerformTransaction` more than once for the same transaction, by design. A naïve handler charges twice or double-fulfils the order. This one checks state first: a transaction already `SUCCESS` returns its completed result unchanged, and a `CANCELLED` one is refused. The retry is safe.
+
+Money is stored as `numeric` throughout — `numeric(12,2)` for prices, `numeric(14,2)` for order totals — never float. Amounts stay exact from the database to the Payme reply.
 
 ---
 
-## Arxitektura
+## What it does
 
-```
-online-shop_2/
-├── backend/          # NestJS API serveri (port 3000)
-└── frontend/         # React SPA (port 5173, Vite dev server)
-```
+**Storefront.** Products with variants, categories, images, reviews and ratings; a cart and wishlist; coupons with usage limits and minimum-order rules; a checkout that creates an order and hands off to Payme.
 
-### API oqimi
-```
-Frontend (RTK Query)
-    ↓ HTTP /api/*
-Vite proxy → NestJS (port 3000)
-    ↓
-ThrottlerGuard → JwtAuthGuard → DemoGuard → RolesGuard
-    ↓
-Controller → Service → TypeORM → Neon PostgreSQL
-    ↓
-ResponseInterceptor: { success, data, message, statusCode }
-    ↓
-RTK Query apiSlice (data unwrap qilinadi)
-```
+**Search that actually searches.** Full-text over a PostgreSQL `tsvector` with `ts_rank` relevance — not a `LIKE '%…%'` scan. Results are ranked, not merely filtered.
 
-### Autentifikatsiya
-- **Access token** — 1 kun, JWT (Bearer)
-- **Refresh token** — 30 kun, opaque token (DB da saqlangan, hash ko'rinishida)
-- **Token rotation** — har refresh da yangi juft beriladi, eskilari bekor qilinadi
-- **401** → `baseQueryWithReauth` avtomatik refresh qiladi, kerak bo'lsa logout
+**Real-time customer chat.** A WebSocket gateway with online-presence tracking, so a customer and a support agent hold a live conversation rather than trading emails.
+
+**Recommendations from behaviour.** "Also viewed" and "recently viewed", driven by what customers actually do rather than a static "related products" list.
+
+**The rest of a real shop.** OTP-based auth with email delivery, JWT access and refresh tokens, delivery options and addresses, the order lifecycle and history, notifications, and an admin surface with analytics.
 
 ---
 
-## Tez ishga tushirish
+## Architecture
 
-### Talablar
-- Node.js ≥ 18
-- npm ≥ 9
-- Internet (Neon cloud DB uchun)
+```
+smd-shop/
+├── backend/          NestJS 11 · ~14,000 lines
+│   └── src/
+│       ├── modules/          20 feature modules
+│       │   ├── payments/         Payme Merchant API
+│       │   ├── search/           tsvector + ts_rank
+│       │   ├── chat/             WebSocket gateway + presence
+│       │   ├── recommendations/  behavioural
+│       │   └── … orders · products · cart · coupons · delivery · reviews …
+│       ├── database/
+│       │   ├── entities/     27 entities
+│       │   └── migrations/   real migrations — synchronize is off in production
+│       └── config/
+├── frontend/         React 19 · Vite · RTK Query · 46 pages
+└── render.yaml
+```
 
-### 1. Repozitoriyni klonlash
+**Backend** — NestJS 11 with TypeORM over PostgreSQL. Twenty modules, each a clear domain boundary. Money is `numeric`; the schema is versioned in migrations and `DB_SYNCHRONIZE` is `false` in production, so the database is never reshaped by the framework guessing at a diff.
+
+**Frontend** — React 19 on Vite, with RTK Query managing every server interaction — caching, invalidation and refetching handled once rather than re-implemented per component across forty-six pages.
+
+---
+
+## Honest status
+
+Being a showcase rather than a product, this says what is not done as plainly as what is:
+
+- **No tests yet.** The Payme state machine and the money arithmetic are exactly the code that most needs them; that is the first thing this project should grow.
+- **Build type-checking is skipped on the frontend deploy** (`vite build` with no preceding `tsc --noEmit`), a shortcut taken to get a Vercel build green. It belongs in CI instead, so a type error fails the build rather than being stepped around.
+
+Neither is hidden, because neither should be. A portfolio is more convincing when it knows its own gaps.
+
+---
+
+## Getting started
+
+**Requirements:** Node 20+ · PostgreSQL 15+
+
 ```bash
-git clone <repo-url>
-cd online-shop_2
+git clone https://github.com/Sarvarbek0704/smd-shop.git
+cd smd-shop
 ```
 
-### 2. Backend sozlash
+**Backend**
+
 ```bash
 cd backend
 npm install
+cp .env.example .env          # DATABASE_URL, JWT secrets, PAYME_KEY, SMTP
+npm run migration:run
+npm run seed                  # demo catalogue
+npm run start:dev             # http://localhost:3000
 ```
 
-`.env` fayl allaqachon sozlangan (Neon DB bilan). Agar kerak bo'lsa ko'ring:
-```bash
-cat .env
-```
+**Frontend**
 
-### 3. Frontend sozlash
-```bash
-cd ../frontend
-npm install
-```
-
-### 4. Ma'lumotlar bazasini va seed ni ishga tushirish
-```bash
-cd ../backend
-
-# Jadvallar avtomatik yaratiladi (DB_SYNCHRONIZE=true)
-# Seed — demo ma'lumotlarni yuklash:
-npm run seed
-```
-
-### 5. Serverni ishga tushirish
-
-**Terminal 1 — Backend:**
-```bash
-cd backend
-npm run start:dev
-# → http://localhost:3000
-# → Swagger: http://localhost:3000/api/docs
-```
-
-**Terminal 2 — Frontend:**
 ```bash
 cd frontend
-npm run dev
-# → http://localhost:5173
+npm install
+echo "VITE_API_URL=http://localhost:3000" > .env.local
+npm run dev                   # http://localhost:5173
 ```
 
-### 6. Brauzerda ochish
-```
-http://localhost:5173
-```
+For Payme, `PAYME_KEY` falls back to a mock value so the flow runs locally without real credentials.
 
 ---
 
-## Muhit sozlamalari
+## License
 
-`backend/.env` fayli:
-
-```env
-# App
-NODE_ENV=production
-PORT=3000
-FRONTEND_URL=http://localhost:5173
-
-# Database — Neon PostgreSQL
-DATABASE_URL=postgresql://neondb_owner:...@ep-holy-feather-...neon.tech/neondb?sslmode=require
-
-# DB_SYNCHRONIZE=true — jadvallar avtomatik yaratiladi (dev uchun)
-DB_SYNCHRONIZE=true
-DB_LOGGING=false
-
-# JWT
-JWT_ACCESS_SECRET=SMD_shop_ACCESS_KEY_...
-JWT_REFRESH_SECRET=SMD_shop_REFRESH_KEY_...
-JWT_ACCESS_EXPIRES=1d
-JWT_REFRESH_EXPIRES=30d
-
-# Mail — Gmail App Password
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USER=coolsarvar2007@gmail.com
-MAIL_PASSWORD=vezuuquwtovjsjbq
-
-# OTP
-OTP_LENGTH=6
-OTP_EXPIRES_MINUTES=5
-OTP_RESEND_COOLDOWN_SECONDS=60
-OTP_MAX_ATTEMPTS=5
-
-# Payment (Mock/Demo)
-PAYME_KEY=test_payme_secret_key_mock_32chars_smd
-CLICK_SECRET=test_click_secret_mock_smd
-UZUM_SECRET=test_uzum_secret_mock_smd
-```
-
-> **Muhim:** `DATABASE_URL` mavjud bo'lsa, `DB_HOST/DB_PORT/...` e'tiborga olinmaydi.  
-> Neon ulanishi SSL talab qiladi — bu avtomatik sozlangan.
-
----
-
-## Ma'lumotlar bazasi
-
-### Jadvallar (TypeORM entities)
-| Jadval | Tavsif |
-|---|---|
-| `users` | Foydalanuvchilar (isDemo flag bilan) |
-| `roles` | Rollar (admin, seller, buyer, delivery) |
-| `user_roles` | Ko'p-ko'p jadval |
-| `categories` | Daraxli kategoriyalar (closure table) |
-| `products` | Mahsulotlar |
-| `product_variants` | Variant (rang, o'lcham, xotira) |
-| `product_images` | Mahsulot rasmlari |
-| `product_views` | Ko'rishlar tarixi |
-| `carts` | Savatcha (couponCode bilan) |
-| `cart_items` | Savatcha elementlari |
-| `orders` | Buyurtmalar |
-| `order_items` | Buyurtma elementlari (snapshot narx bilan) |
-| `order_status_history` | Holat o'zgarish tarixi |
-| `deliveries` | Yetkazib berish yozuvlari |
-| `payments` | To'lov tranzaksiyalari |
-| `reviews` | Mahsulot sharhlari |
-| `coupons` | Chegirma kuponlari |
-| `wishlist` | Sevimlilar |
-| `notifications` | Bildirishnomalar |
-| `chat_rooms` | Chat xonalari |
-| `chat_messages` | Chat xabarlari |
-| `refresh_tokens` | JWT refresh tokenlar |
-| `email_verifications` | Email tasdiqlash tokenlar |
-| `password_resets` | Parol tiklash tokenlar |
-| `phone_otps` | Telefon OTP kodlar |
-
-### TypeORM migratsiyalari
-```bash
-# Migratsiya yaratish
-npm run migration:generate -- src/database/migrations/MigrationName
-
-# Migratsiyani ishlatish
-npm run migration:run
-
-# Ortga qaytarish
-npm run migration:revert
-```
-
-> Production'da `DB_SYNCHRONIZE=false` qo'yib, migratsiyalar bilan ishlash tavsiya etiladi.
-
----
-
-## Seed (Demo ma'lumotlar)
-
-```bash
-cd backend
-npm run seed
-```
-
-Seed nima yaratadi:
-
-### Foydalanuvchilar
-| Email | Parol | Rol | Izoh |
-|---|---|---|---|
-| `admin@smd.uz` | `Shop12345!` | Admin | Real admin |
-| `techzone@smd.uz` | `Shop12345!` | Seller | TechZone do'koni |
-| `fashionhub@smd.uz` | `Shop12345!` | Seller | FashionHub do'koni |
-| `homestyle@smd.uz` | `Shop12345!` | Seller | HomeStyle do'koni |
-| `alisher@smd.uz` | `Shop12345!` | Buyer | Real xaridor |
-| `kamola@smd.uz` | `Shop12345!` | Buyer | Real xaridor |
-| `sherzod@smd.uz` | `Shop12345!` | Buyer | Real xaridor |
-| `dilnoza@smd.uz` | `Shop12345!` | Buyer | Real xaridor |
-| `ulugbek@smd.uz` | `Shop12345!` | Buyer | Real xaridor |
-| `courier@smd.uz` | `Shop12345!` | Delivery | Real kuryer |
-
-### Kategoriyalar (17 ta)
-- **Elektronika:** Smartfonlar, Noutbuklar, Audio & Video, Aksessuarlar
-- **Kiyim & Moda:** Erkaklar kiyimi, Ayollar kiyimi, Bolalar kiyimi, Sport kiyimlari
-- **Uy & Bog':** Mebel, Oshxona buyumlari, Bezatish
-- **Sport & Fitnes:** Fitnes uskunalari, Velosipedlar
-
-### Mahsulotlar (21 ta)
-- iPhone 15 Pro Max, Samsung Galaxy S24 Ultra, Xiaomi 14 Ultra, OnePlus 12
-- MacBook Pro 14" M3 Pro, Dell XPS 15, ASUS ROG Zephyrus G16
-- AirPods Pro 2, Sony WH-1000XM5, Anker MagSafe 3-in-1
-- Erkaklar ko'ylagi, Chino shim, Nike Dri-FIT t-shirt
-- Skandinav ish stoli, Ergonomik kreslo
-- Tefal Airfryer XXL, Tefal Ingenio qozon to'plami
-- Aromatik sham to'plami, Adjustable Dumbbell Set
-
-### Buyurtmalar (14 ta, turli statuslar)
-`delivered`, `shipped`, `processing`, `confirmed`, `pending`, `cancelled`, `refunded`
-
-### Kuponlar
-| Kod | Tur | Chegirma | Shart |
-|---|---|---|---|
-| `WELCOME10` | Foiz | 10% | — |
-| `SUMMER25` | Foiz | 25% | Min 500,000 so'm, max 300,000 so'm chegirma |
-| `TECH50K` | Belgilangan | 50,000 so'm | Min 300,000 so'm |
-| `VIP500K` | Belgilangan | 500,000 so'm | Min 5,000,000 so'm |
-
----
-
-## Demo hisoblar
-
-Demo hisoblar faqat **ko'rish** rejimida ishlaydi.  
-Har qanday o'zgartirish (buyurtma berish, mahsulot qo'shish va h.k.) **403 Forbidden** qaytaradi.
-
-| Rol | Email | Parol |
-|---|---|---|
-| 👑 Admin | `demo.admin@smd.uz` | `Demo12345!` |
-| 🏪 Seller | `demo.seller@smd.uz` | `Demo12345!` |
-| 👤 Buyer | `demo.user@smd.uz` | `Demo12345!` |
-
-Demo hisoblar bilan nima qilsa bo'ladi:
-- ✅ Saytni ko'rish, mahsulotlarni ko'rish
-- ✅ Admin panelni ko'rish (barcha statistika, buyurtmalar, foydalanuvchilar)
-- ✅ Seller dashboardini ko'rish (buyurtmalar, analitika, sharhlar)
-- ✅ Savatni ko'rish
-- ❌ Buyurtma berish
-- ❌ Mahsulot qo'shish / tahrirlash
-- ❌ Profil yangilash
-- ❌ Sharh yozish
-- ❌ Har qanday ma'lumot o'zgartirish
-
----
-
-## API hujjatlari
-
-Swagger UI (backend ishga tushganda):
-```
-http://localhost:3000/api/docs
-```
-
-### Asosiy endpoint guruhlari
-
-| Guruh | Prefix | Tavsif |
-|---|---|---|
-| Auth | `/api/auth` | Login, register, refresh, logout, OTP |
-| Users | `/api/users` | Profil, parol, avatar, sellerlar ro'yxati |
-| Categories | `/api/categories` | CRUD kategoriyalar (admin) |
-| Products | `/api/products` | CRUD, qidiruv, filter, ko'rishlar |
-| Cart | `/api/cart` | Savatcha, kupon qo'shish/olib tashlash |
-| Orders | `/api/orders` | Buyurtma berish, holat kuzatish, bekor qilish |
-| Payments | `/api/payments` | To'lov boshlash, webhook, simulator |
-| Reviews | `/api/reviews` | Sharh yozish, o'qish, tasdiqlash (admin) |
-| Coupons | `/api/coupons` | CRUD (admin), validatsiya |
-| Delivery | `/api/delivery` | Kuryer topshiriqlari, holat yangilash |
-| Notifications | `/api/notifications` | O'qish, o'chirish, promo jo'natish |
-| Analytics | `/api/analytics` | Admin va seller statistikasi |
-| Search | `/api/search` | Global qidiruv |
-| Chat | `/api/chat` | Xonalar, xabarlar (WebSocket ham) |
-| Uploads | `/api/uploads` | Rasm yuklash |
-| Health | `/api/health` | Server holati |
-
-### Javob formati
-Barcha muvaffaqiyatli javoblar:
-```json
-{
-  "success": true,
-  "statusCode": 200,
-  "message": "OK",
-  "data": { ... }
-}
-```
-
-Xato javobi:
-```json
-{
-  "success": false,
-  "statusCode": 400,
-  "message": "Xato tavsifi"
-}
-```
-
----
-
-## Rollar va ruxsatlar
-
-| Amal | Buyer | Seller | Delivery | Admin |
-|---|---|---|---|---|
-| Mahsulotlarni ko'rish | ✅ | ✅ | ✅ | ✅ |
-| Buyurtma berish | ✅ | — | — | ✅ |
-| O'z buyurtmalarini ko'rish | ✅ | — | — | ✅ |
-| Seller dashboard | — | ✅ | — | ✅ |
-| Seller mahsulot CRUD | — | ✅ | — | ✅ |
-| Kuryer paneli | — | — | ✅ | ✅ |
-| Admin panel | — | — | — | ✅ |
-| Foydalanuvchilarni boshqarish | — | — | — | ✅ |
-| Kuponlarni boshqarish | — | — | — | ✅ |
-| Sharhlarni tasdiqlash | — | — | — | ✅ |
-
-> **Demo hisoblar:** Barcha rollar uchun demo versiyasi mavjud — lekin faqat ko'rish (GET) amallar ishlaydi.
-
----
-
-## To'lov tizimi
-
-Real Payme/Click/Uzum API kalitlari yo'qligi sababli **mock (soxta) to'lov tizimi** qurilgan:
-
-### Qanday ishlaydi
-
-1. Checkout sahifasida to'lov usulini tanlanadi (Payme, Click, Uzum)
-2. Buyurtma yaratilganda `/payment/:orderId` sahifasiga yo'naltiriladi
-3. "To'lash" tugmasi bosilganda backend **15 daqiqalik token** yaratadi
-4. Frontend `/payment/simulate/:token` sahifasini ochadi — bu **bank interfeysi simulyatori**
-5. Simulyator PIN kiritadi va:
-   - **"To'lovni tasdiqlash"** → buyurtma `paymentStatus: paid` bo'ladi
-   - **"Bekor qilish"** → `paymentStatus: cancelled` bo'ladi
-6. Natijaga qarab buyurtma sahifasiga qaytariladi
-
-### To'lov simulyatori interfeysi
-- Har provider uchun o'z rang sxemasi (Payme — ko'k, Click — yashil, Uzum — binafsha)
-- PIN klaviaturasi animatsiya bilan
-- "Bank bilan aloqa" jarayon ekrani
-- Muvaffaqiyat / bekor ekrani (spring animatsiya)
-- 15 daqiqa muddati sanash
-
-### Mock webhook endpointlar (real integratsiya uchun)
-```
-POST /api/payments/webhook/payme          # Payme JSON-RPC
-POST /api/payments/webhook/click/prepare  # Click Prepare
-POST /api/payments/webhook/click/complete # Click Complete
-POST /api/payments/webhook/uzum           # Uzum HMAC-SHA256
-```
-
----
-
-## Modullar ro'yxati
-
-### Backend (`backend/src/modules/`)
-```
-auth/           — Ro'yxatdan o'tish, tizimga kirish, token rotation
-users/          — Profil, avatar, seller arizasi, sellerlar ro'yxati
-categories/     — Daraxli kategoriyalar CRUD
-products/       — Mahsulotlar, variantlar, rasmlar, ko'rishlar
-cart/           — Savatcha, kupon qo'llash/olib tashlash
-orders/         — Buyurtma berish, holat, bekor qilish, tarix
-payments/       — Mock Payme/Click/Uzum, simulator, admin refund
-reviews/        — Sharh yozish, seller reply, admin publish/unpublish
-coupons/        — Kupon CRUD, foydalanish tekshiruvi
-delivery/       — Kuryer topshiriqlari, holat yangilash
-notifications/  — Bildirishnomalar, promo jo'natish
-analytics/      — Admin va seller dashboardi statistikasi
-search/         — Mahsulot va kategoriya qidiruvi
-chat/           — WebSocket chat, xona boshqaruvi
-recommendations/— Tavsiya etilgan mahsulotlar
-uploads/        — Rasm yuklash (Multer + Sharp optimizatsiya)
-health/         — GET /api/health (server holati)
-mail/           — Email jo'natish servisi
-otp/            — Telefon OTP xizmati
-```
-
-### Frontend (`frontend/src/`)
-```
-pages/
-  ├── auth/           — Login, Register, Email verification
-  ├── catalog/        — Katalog, filter, sort
-  ├── products/       — Mahsulot sahifasi, sharhlar
-  ├── cart/           — Savatcha
-  ├── checkout/       — Buyurtma berish (3 bosqich)
-  ├── payment/        — PaymentPage, PaymentSimulator
-  ├── orders/         — Buyurtmalar ro'yxati, batafsil
-  ├── profile/        — Profil, parol, seller bo'lish
-  ├── wishlist/       — Sevimlilar
-  ├── seller/         — Seller dashboard, mahsulotlar, buyurtmalar, analitika
-  ├── admin/          — Admin panel (14 bo'lim)
-  ├── delivery/       — Kuryer paneli
-  ├── chat/           — Chat sahifasi
-  ├── notifications/  — Bildirishnomalar
-  └── static/         — About, Contact, Privacy, Terms
-
-store/
-  ├── api/
-  │   ├── apiSlice.ts       — RTK Query base (reauth + unwrap)
-  │   ├── productsApi.ts
-  │   ├── cartApi.ts
-  │   ├── ordersApi.ts
-  │   ├── paymentsApi.ts
-  │   ├── adminApi.ts
-  │   ├── usersApi.ts
-  │   ├── reviewsApi.ts
-  │   ├── deliveryApi.ts
-  │   └── searchApi.ts
-  └── slices/
-      └── authSlice.ts      — Auth holati, localStorage
-
-components/
-  ├── layout/         — Header, Footer, MainLayout
-  └── guards/         — AuthGuard, GuestGuard, RoleGuard
-```
-
----
-
-## Papka strukturasi
-
-```
-online-shop_2/
-│
-├── README.md
-│
-├── backend/
-│   ├── .env                          # Muhit o'zgaruvchilari (Neon DB)
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── src/
-│       ├── main.ts                   # Bootstrap (rawBody=true Uzum uchun)
-│       ├── app.module.ts             # Global guards: Throttler, Jwt, Demo, Roles
-│       ├── config/
-│       │   ├── configuration.ts      # Barcha config
-│       │   ├── typeorm.config.ts     # DATABASE_URL + SSL qo'llab-quvvatlash
-│       │   └── env.validation.ts     # Joi schema
-│       ├── common/
-│       │   ├── guards/
-│       │   │   ├── jwt-auth.guard.ts
-│       │   │   ├── roles.guard.ts
-│       │   │   └── demo.guard.ts     # Demo foydalanuvchi blokirovka
-│       │   ├── decorators/
-│       │   │   ├── current-user.decorator.ts
-│       │   │   ├── public.decorator.ts
-│       │   │   └── roles.decorator.ts
-│       │   ├── filters/
-│       │   ├── interceptors/
-│       │   └── utils/
-│       ├── database/
-│       │   ├── data-source.ts        # DATABASE_URL + SSL
-│       │   ├── entities/             # 26 ta entity
-│       │   ├── migrations/
-│       │   └── seeds/
-│       │       └── seed.ts           # Production-grade seed
-│       └── modules/                  # 16 ta modul
-│
-└── frontend/
-    ├── index.html
-    ├── vite.config.ts                # /api → localhost:3000 proxy
-    ├── package.json
-    └── src/
-        ├── main.tsx
-        ├── router.tsx                # Barcha route-lar
-        ├── index.css                 # Tailwind
-        ├── components/
-        ├── pages/
-        └── store/
-```
-
----
-
-## Tez-tez so'raladigan savollar
-
-**Q: Seed ikkinchi marta ishlatilsa nima bo'ladi?**  
-A: Xavfsiz — har bir yozuv `findOne` bilan tekshiriladi. Mavjud bo'lsa o'tkazib yuboriladi.
-
-**Q: Real Payme/Click/Uzum qanday ulash?**  
-A: `.env` ga mos kalitlarni qo'ying:  
-```env
-PAYME_KEY=haqiqiy_kalit
-PAYME_MERCHANT_ID=haqiqiy_id
-CLICK_SECRET=haqiqiy_secret
-CLICK_MERCHANT_ID=haqiqiy_id
-UZUM_SECRET=haqiqiy_secret
-```
-Webhook URL'larini provider admin panelida ro'yxatdan o'tkazing:
-- Payme: `https://your-domain.com/api/payments/webhook/payme`
-- Click Prepare: `https://your-domain.com/api/payments/webhook/click/prepare`
-- Click Complete: `https://your-domain.com/api/payments/webhook/click/complete`
-- Uzum: `https://your-domain.com/api/payments/webhook/uzum`
-
-**Q: Demo hisoblar nima uchun kerak?**  
-A: Portfolio ko'ruvchilar uchun — login qilib saytni ishlatib ko'rishlari mumkin, lekin real ma'lumotlarga zarar yetkazolmaydi.
-
-**Q: Production deployment uchun nima kerak?**  
-A: `DB_SYNCHRONIZE=false` qo'ying va `npm run migration:run` ishlating. `NODE_ENV=production`, barcha JWT secretlarini kuchli qiling.
-
-**Q: Rasmlar qaerda saqlanadi?**  
-A: `backend/uploads/` papkasida (local). Production uchun AWS S3 yoki Cloudinary integratsiyasi kerak.
-
----
-
-## Litsenziya
-
-MIT © 2026 Sarvarbek
+Proprietary. Built by [Sarvarbek Sodiqov](https://github.com/Sarvarbek0704) as a portfolio project; published for review, not for reuse.

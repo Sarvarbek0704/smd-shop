@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: online-shop-api
+    name: smd-shop-api
     runtime: node
     rootDir: backend
     buildCommand: npm install --include=dev && npm run build
@@ -18,7 +18,7 @@ services:
       - key: DB_LOGGING
         value: false
       - key: FRONTEND_URL
-        sync: false          # Vercel URL'ingiz, masalan: https://online-shop-xyz.vercel.app
+        sync: false          # Vercel URL'ingiz, masalan: https://smd-shop-xyz.vercel.app
       - key: JWT_ACCESS_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
