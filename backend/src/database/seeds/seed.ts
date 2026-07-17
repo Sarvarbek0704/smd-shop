@@ -1,5 +1,5 @@
 /**
- * SMD Shop — Production-grade seed
+ * Karvon — Production-grade seed
  *
  * Nimalar yaratiladi:
  *  - Rollar (admin, seller, buyer, delivery)
@@ -177,7 +177,7 @@ async function seed() {
 
   // ── Admin
   const admin = await upsertUser({
-    email: 'admin@smd.uz',
+    email: 'admin@karvon.uz',
     passwordHash: await hashR(REAL_PASS),
     firstName: 'Sardor',
     lastName: 'Mirzayev',
@@ -189,7 +189,7 @@ async function seed() {
 
   // ── Demo Admin
   const demoAdmin = await upsertUser({
-    email: 'demo.admin@smd.uz',
+    email: 'demo.admin@karvon.uz',
     passwordHash: await hashR(DEMO_PASS),
     firstName: 'Demo',
     lastName: 'Admin',
@@ -201,7 +201,7 @@ async function seed() {
 
   // ── Sellerlar
   const seller1 = await upsertUser({
-    email: 'techzone@smd.uz',
+    email: 'techzone@karvon.uz',
     passwordHash: await hashR(REAL_PASS),
     firstName: 'Jahongir',
     lastName: 'Toshmatov',
@@ -216,7 +216,7 @@ async function seed() {
   });
 
   const seller2 = await upsertUser({
-    email: 'fashionhub@smd.uz',
+    email: 'fashionhub@karvon.uz',
     passwordHash: await hashR(REAL_PASS),
     firstName: 'Nilufar',
     lastName: 'Rahimova',
@@ -231,7 +231,7 @@ async function seed() {
   });
 
   const seller3 = await upsertUser({
-    email: 'homestyle@smd.uz',
+    email: 'homestyle@karvon.uz',
     passwordHash: await hashR(REAL_PASS),
     firstName: 'Bobur',
     lastName: 'Usmonov',
@@ -247,7 +247,7 @@ async function seed() {
 
   // ── Demo Seller
   const demoSeller = await upsertUser({
-    email: 'demo.seller@smd.uz',
+    email: 'demo.seller@karvon.uz',
     passwordHash: await hashR(DEMO_PASS),
     firstName: 'Demo',
     lastName: 'Sotuvchi',
@@ -263,11 +263,11 @@ async function seed() {
   // ── Buyerlar
   const buyers: User[] = [];
   const buyerData = [
-    { email: 'alisher@smd.uz', firstName: 'Alisher', lastName: 'Qodirov' },
-    { email: 'kamola@smd.uz', firstName: 'Kamola', lastName: 'Ergasheva' },
-    { email: 'sherzod@smd.uz', firstName: 'Sherzod', lastName: 'Nishonov' },
-    { email: 'dilnoza@smd.uz', firstName: 'Dilnoza', lastName: 'Hasanova' },
-    { email: 'ulugbek@smd.uz', firstName: 'Ulugbek', lastName: 'Yunusov' },
+    { email: 'alisher@karvon.uz', firstName: 'Alisher', lastName: 'Qodirov' },
+    { email: 'kamola@karvon.uz', firstName: 'Kamola', lastName: 'Ergasheva' },
+    { email: 'sherzod@karvon.uz', firstName: 'Sherzod', lastName: 'Nishonov' },
+    { email: 'dilnoza@karvon.uz', firstName: 'Dilnoza', lastName: 'Hasanova' },
+    { email: 'ulugbek@karvon.uz', firstName: 'Ulugbek', lastName: 'Yunusov' },
   ];
 
   for (const bd of buyerData) {
@@ -284,7 +284,7 @@ async function seed() {
 
   // ── Demo Buyer
   const demoBuyer = await upsertUser({
-    email: 'demo.user@smd.uz',
+    email: 'demo.user@karvon.uz',
     passwordHash: await hashR(DEMO_PASS),
     firstName: 'Demo',
     lastName: 'Foydalanuvchi',
@@ -296,7 +296,7 @@ async function seed() {
 
   // ── Kuryer
   const courier = await upsertUser({
-    email: 'courier@smd.uz',
+    email: 'courier@karvon.uz',
     passwordHash: await hashR(REAL_PASS),
     firstName: 'Mansur',
     lastName: 'Karimov',
@@ -1676,17 +1676,17 @@ async function seed() {
   console.log('═══════════════════════════════════════════════════════');
   console.log("  DEMO HISOBLAR (faqat ko'rish rejimi)");
   console.log('───────────────────────────────────────────────────────');
-  console.log(`  👑 Admin  : demo.admin@smd.uz  / ${DEMO_PASS}`);
-  console.log(`  🏪 Seller : demo.seller@smd.uz / ${DEMO_PASS}`);
-  console.log(`  👤 Buyer  : demo.user@smd.uz   / ${DEMO_PASS}`);
+  console.log(`  👑 Admin  : demo.admin@karvon.uz  / ${DEMO_PASS}`);
+  console.log(`  🏪 Seller : demo.seller@karvon.uz / ${DEMO_PASS}`);
+  console.log(`  👤 Buyer  : demo.user@karvon.uz   / ${DEMO_PASS}`);
   console.log('───────────────────────────────────────────────────────');
   console.log('  REAL HISOBLAR');
   console.log('───────────────────────────────────────────────────────');
-  console.log(`  👑 Admin  : admin@smd.uz        / ${REAL_PASS}`);
-  console.log(`  🏪 TechZone: techzone@smd.uz    / ${REAL_PASS}`);
-  console.log(`  🏪 FashionHub: fashionhub@smd.uz/ ${REAL_PASS}`);
-  console.log(`  🏪 HomeStyle: homestyle@smd.uz  / ${REAL_PASS}`);
-  console.log(`  🚚 Kuryer : courier@smd.uz      / ${REAL_PASS}`);
+  console.log(`  👑 Admin  : admin@karvon.uz        / ${REAL_PASS}`);
+  console.log(`  🏪 TechZone: techzone@karvon.uz    / ${REAL_PASS}`);
+  console.log(`  🏪 FashionHub: fashionhub@karvon.uz/ ${REAL_PASS}`);
+  console.log(`  🏪 HomeStyle: homestyle@karvon.uz  / ${REAL_PASS}`);
+  console.log(`  🚚 Kuryer : courier@karvon.uz      / ${REAL_PASS}`);
   console.log('───────────────────────────────────────────────────────');
   console.log('  FAOL KUPONLAR');
   console.log('───────────────────────────────────────────────────────');

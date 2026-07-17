@@ -87,7 +87,7 @@ export function BecomeSeller() {
         <div className="space-y-8">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 mb-4 tracking-tight">
-              O'z biznesingizni <span className="text-amber-500">OnlineShop</span> bilan boshlang!
+              O'z biznesingizni <span className="text-amber-500">Karvon</span> bilan boshlang!
             </h1>
             <p className="text-slate-600 leading-relaxed">
               Millionlab xaridorlar sizning mahsulotlaringizni kutmoqda. Biz bilan do'kon oching va sotuvlarni oshiring.
@@ -178,7 +178,7 @@ export function BecomeSeller() {
           </form>
 
           <p className="text-[11px] text-center text-slate-400 mt-6 px-4">
-            Arizani yuborish orqali siz OnlineShop <Link to="/terms" className="underline hover:text-slate-600">foydalanish shartlari</Link> va <Link to="/privacy" className="underline hover:text-slate-600">maxfiylik siyosatiga</Link> rozilik bildirasiz.
+            Arizani yuborish orqali siz Karvon <Link to="/terms" className="underline hover:text-slate-600">foydalanish shartlari</Link> va <Link to="/privacy" className="underline hover:text-slate-600">maxfiylik siyosatiga</Link> rozilik bildirasiz.
           </p>
         </motion.div>
       </div>

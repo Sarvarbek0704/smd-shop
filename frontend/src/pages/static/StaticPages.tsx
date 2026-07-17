@@ -9,7 +9,7 @@ export function AboutPage() {
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-16"
       >
-        <h1 className="text-4xl font-black text-slate-900 mb-6">OnlineShop Haqida</h1>
+        <h1 className="text-4xl font-black text-slate-900 mb-6">Karvon Haqida</h1>
         <p className="text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
           Biz O'zbekistondagi eng zamonaviy online savdo platformasimiz. Bizning maqsadimiz — xaridorlar va sotuvchilar uchun qulay, xavfsiz va ishonchli muhit yaratish.
         </p>
@@ -128,7 +128,7 @@ export function TermsPage() {
       <p>Oxirgi yangilanish: 2026-yil 8-may</p>
       
       <h3>1. Umumiy qoidalar</h3>
-      <p>OnlineShop platformasidan foydalanish orqali siz ushbu shartlarga rozilik bildirasiz.</p>
+      <p>Karvon platformasidan foydalanish orqali siz ushbu shartlarga rozilik bildirasiz.</p>
       
       <h3>2. Ro'yxatdan o'tish</h3>
       <p>Foydalanuvchi haqiqiy ma'lumotlarni taqdim etishi va o'z paroli xavfsizligi uchun mas'uldir.</p>

@@ -27,6 +27,7 @@ import {
 import { useGetCartQuery } from '@/store/api/cartApi';
 import { useGetUnreadCountQuery } from '@/store/api/notificationsApi';
 import { useGetAutocompleteQuery, useGetPopularSearchesQuery } from '@/store/api/searchApi';
+import { KarvonMark } from "@/components/AppLogo";
 
 export function Header() {
   const dispatch = useAppDispatch();
@@ -110,10 +111,10 @@ export function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <div className="w-9 h-9 bg-slate-900 rounded-lg flex items-center justify-center">
-              <span className="text-amber-400 font-extrabold text-base">O</span>
+              <KarvonMark className="w-6 h-6 text-amber-400" />
             </div>
             <span className="text-lg font-bold text-slate-900 hidden sm:block tracking-tight">
-              OnlineShop
+              Karvon
             </span>
           </Link>
 

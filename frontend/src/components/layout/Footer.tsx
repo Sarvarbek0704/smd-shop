@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useGetCategoryTreeQuery } from "@/store/api/categoriesApi";
 import { Phone, Mail, MapPin, Send } from "lucide-react";
 import { useState } from "react";
+import { KarvonMark } from "@/components/AppLogo";
 
 export function Footer() {
   const { data: categories } = useGetCategoryTreeQuery();
@@ -46,9 +47,9 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2.5 mb-4">
               <div className="w-9 h-9 bg-slate-800 rounded-lg flex items-center justify-center">
-                <span className="text-amber-400 font-extrabold">O</span>
+                <KarvonMark className="w-6 h-6 text-amber-400" />
               </div>
-              <span className="text-lg font-bold text-white">OnlineShop</span>
+              <span className="text-lg font-bold text-white">Karvon</span>
             </Link>
             <p className="text-sm text-slate-500 leading-relaxed mb-4">
               O'zbekistonning zamonaviy online do'koni. Sifatli mahsulotlar, tez
@@ -222,7 +223,7 @@ export function Footer() {
         <div className="max-w-7xl mx-auto px-4 py-5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3">
             <p className="text-xs text-slate-600">
-              © {new Date().getFullYear()} OnlineShop. Barcha huquqlar
+              © {new Date().getFullYear()} Karvon. Barcha huquqlar
               himoyalangan.
             </p>
             <div className="flex items-center gap-4">
